@@ -47,9 +47,12 @@ export async function createWorktree(
   repositoryRoot: string,
   runId: string,
   candidate: string,
-  baseDirectory?: string
+  baseDirectory?: string,
+  requestedBaselineCommit?: string
 ): Promise<WorktreeRecord> {
-  const baselineCommit = git(["rev-parse", "HEAD"], repositoryRoot);
+  const baselineCommit =
+    requestedBaselineCommit ?? git(["rev-parse", "HEAD"], repositoryRoot);
+  git(["cat-file", "-e", `${baselineCommit}^{commit}`], repositoryRoot);
   const branch = `thearchy/${runId}/${candidate}`.replaceAll(/[^A-Za-z0-9/_-]/g, "-");
   const parent = resolve(
     baseDirectory ?? join(repositoryRoot, ".git", "thearchy", "worktrees")

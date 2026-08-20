@@ -103,6 +103,17 @@ export interface ArtifactRecord {
   final: boolean;
 }
 
+export interface AgentLease {
+  instanceId: string;
+  roleId: string;
+  claimedAt: string;
+}
+
+export interface AgentInstanceRecord {
+  instanceId: string;
+  roleId: string;
+}
+
 export interface RunSnapshot {
   id: string;
   schemaVersion: 1;
@@ -116,7 +127,11 @@ export interface RunSnapshot {
   reworkTarget?: "planning" | "executing";
   planReworks: number;
   resultReworks: number;
+  allowedGovernance: string[];
+  allowedSpecialists: string[];
   participants: string[];
+  activeAgents: AgentLease[];
+  agentInstances: AgentInstanceRecord[];
   artifacts: ArtifactRecord[];
   approvals: Partial<Record<ApprovalGate, string>>;
   baselineCommit?: string;
@@ -136,6 +151,8 @@ export interface RunEvent {
     | "run.started"
     | "run.transitioned"
     | "artifact.submitted"
+    | "agent.claimed"
+    | "agent.released"
     | "gate.approved"
     | "gate.rejected"
     | "run.resumed"

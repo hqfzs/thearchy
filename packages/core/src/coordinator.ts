@@ -44,6 +44,7 @@ export interface StartRunInput {
 export interface SubmitArtifactInput {
   runId: string;
   roleId: string;
+  instanceId: string;
   artifactPath: string;
   final?: boolean;
   actor?: string;
@@ -74,7 +75,11 @@ export class Coordinator {
       state: "created",
       planReworks: 0,
       resultReworks: 0,
+      allowedGovernance: [...input.template.spec.governance],
+      allowedSpecialists: [...input.template.spec.specialists],
       participants: [],
+      activeAgents: [],
+      agentInstances: [],
       artifacts: [],
       approvals: {},
       dirtyWorkingTree: baseline.dirty,
@@ -112,6 +117,91 @@ export class Coordinator {
     return nextAction(snapshot);
   }
 
+  async claim(
+    id: string,
+    roleId: string,
+    instanceId: string,
+    actor = "main"
+  ): Promise<RunSnapshot> {
+    if (!ROLE_BY_ID.has(roleId)) throw new Error(`Unknown role: ${roleId}`);
+    if (!/^[A-Za-z0-9._-]{1,80}$/.test(instanceId)) {
+      throw new Error("Agent instance id must use letters, numbers, dot, underscore, or hyphen");
+    }
+    return this.store.update(id, (snapshot, events) => {
+      assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
+      this.assertRoleAllowed(snapshot, roleId);
+      if (snapshot.activeAgents.some((lease) => lease.instanceId === instanceId)) {
+        throw new Error(`Agent instance is already active: ${instanceId}`);
+      }
+      if (snapshot.activeAgents.length >= snapshot.budget.maxConcurrency) {
+        throw new Error(
+          `Run concurrency budget exceeded (${snapshot.budget.maxConcurrency})`
+        );
+      }
+
+      const existing = snapshot.agentInstances.find(
+        (instance) => instance.instanceId === instanceId
+      );
+      if (existing && existing.roleId !== roleId) {
+        throw new Error(
+          `Agent instance ${instanceId} is already bound to ${existing.roleId}`
+        );
+      }
+      const role = ROLE_BY_ID.get(roleId)!;
+      if (!existing && !role.governance) {
+        const expertCount = snapshot.agentInstances.filter(
+          (instance) => ROLE_BY_ID.get(instance.roleId)?.governance === false
+        ).length;
+        if (expertCount >= snapshot.budget.maxAgents) {
+          throw new Error(`Run agent budget exceeded (${snapshot.budget.maxAgents})`);
+        }
+        if (roleId === "expert.builder") {
+          const builderCount = snapshot.agentInstances.filter(
+            (instance) => instance.roleId === "expert.builder"
+          ).length;
+          if (builderCount >= snapshot.budget.maxCompetingImplementations) {
+            throw new Error(
+              `Competing implementation budget exceeded (${snapshot.budget.maxCompetingImplementations})`
+            );
+          }
+        }
+      }
+
+      const claimedAt = new Date().toISOString();
+      snapshot.activeAgents.push({ instanceId, roleId, claimedAt });
+      if (!existing) snapshot.agentInstances.push({ instanceId, roleId });
+      if (!snapshot.participants.includes(roleId)) snapshot.participants.push(roleId);
+      return nextEvent(events, id, "agent.claimed", actor, {
+        instanceId,
+        roleId,
+        activeAgents: snapshot.activeAgents.length
+      });
+    });
+  }
+
+  async release(
+    id: string,
+    instanceId: string,
+    actor = "main"
+  ): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      this.ensureCoordinationFields(snapshot);
+      const lease = snapshot.activeAgents.find(
+        (item) => item.instanceId === instanceId
+      );
+      if (!lease) throw new Error(`Agent instance is not active: ${instanceId}`);
+      snapshot.activeAgents = snapshot.activeAgents.filter(
+        (item) => item.instanceId !== instanceId
+      );
+      return nextEvent(events, id, "agent.released", actor, {
+        instanceId,
+        roleId: lease.roleId,
+        activeAgents: snapshot.activeAgents.length
+      });
+    });
+  }
+
   async submit(input: SubmitArtifactInput): Promise<RunSnapshot> {
     if (!ROLE_BY_ID.has(input.roleId)) {
       throw new Error(`Unknown role: ${input.roleId}`);
@@ -121,7 +211,29 @@ export class Coordinator {
 
     return this.store.update(input.runId, (snapshot, events) => {
       assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
       this.assertRoleAllowed(snapshot, input.roleId);
+      const lease = snapshot.activeAgents.find(
+        (item) =>
+          item.instanceId === input.instanceId && item.roleId === input.roleId
+      );
+      if (!lease) {
+        throw new Error(
+          `Agent ${input.instanceId} must claim role ${input.roleId} before submitting`
+        );
+      }
+      const remainingAgents = snapshot.activeAgents.filter(
+        (item) => item.instanceId !== input.instanceId
+      );
+      if (
+        snapshot.state === "executing" &&
+        (input.final ?? false) &&
+        remainingAgents.length > 0
+      ) {
+        throw new Error(
+          "Cannot finish execution while other agent instances are still active"
+        );
+      }
       const artifact: ArtifactRecord = {
         id: `artifact-${snapshot.artifacts.length + 1}`,
         roleId: input.roleId,
@@ -131,24 +243,30 @@ export class Coordinator {
         final: input.final ?? false
       };
       snapshot.artifacts.push(artifact);
-      if (!snapshot.participants.includes(input.roleId)) {
-        const expertCount = snapshot.participants.filter(
-          (roleId) => ROLE_BY_ID.get(roleId)?.governance === false
-        ).length;
-        if (
-          ROLE_BY_ID.get(input.roleId)?.governance === false &&
-          expertCount >= snapshot.budget.maxAgents
-        ) {
-          throw new Error(`Run agent budget exceeded (${snapshot.budget.maxAgents})`);
-        }
-        snapshot.participants.push(input.roleId);
-      }
+      snapshot.activeAgents = remainingAgents;
 
       const emitted = [
-        nextEvent(events, snapshot.id, "artifact.submitted", input.actor ?? input.roleId, {
-          artifact
-        })
+        nextEvent(
+          events,
+          snapshot.id,
+          "artifact.submitted",
+          input.actor ?? input.instanceId,
+          { artifact, instanceId: input.instanceId }
+        )
       ];
+      emitted.push(
+        nextEvent(
+          [...events, ...emitted],
+          snapshot.id,
+          "agent.released",
+          "system",
+          {
+            instanceId: input.instanceId,
+            roleId: input.roleId,
+            activeAgents: snapshot.activeAgents.length
+          }
+        )
+      );
       const previous = snapshot.state;
       const advance = this.stateAfterSubmission(snapshot, input.roleId, input.final ?? false);
       if (advance) {
@@ -268,30 +386,53 @@ export class Coordinator {
   }
 
   private assertRoleAllowed(snapshot: RunSnapshot, roleId: string): void {
+    this.ensureCoordinationFields(snapshot);
     const expected: Partial<Record<RunState, string[]>> = {
       created: ["governance.router"],
       classified: ["governance.planner"],
       planning: ["governance.planner"],
       plan_review: ["governance.judge"],
       dispatching: ["governance.dispatcher"],
-      executing: [
-        "expert.builder",
-        "expert.debugger",
-        "expert.security",
-        "expert.architect",
-        "expert.documenter",
-        "expert.data",
-        "expert.operations",
-        "expert.migrator"
-      ],
+      executing: snapshot.allowedSpecialists.filter(
+        (candidate) => candidate !== "expert.tester"
+      ),
       verification: ["expert.tester"],
       result_review: ["governance.judge"],
       integrating: ["governance.publisher"]
     };
     const allowed = expected[snapshot.state];
-    if (!allowed?.includes(roleId)) {
+    if (
+      !allowed?.includes(roleId) ||
+      (roleId.startsWith("governance.") &&
+        !snapshot.allowedGovernance.includes(roleId)) ||
+      (roleId.startsWith("expert.") &&
+        !snapshot.allowedSpecialists.includes(roleId))
+    ) {
       throw new Error(`Role ${roleId} cannot submit while run is ${snapshot.state}`);
     }
+  }
+
+  private ensureCoordinationFields(snapshot: RunSnapshot): void {
+    snapshot.allowedGovernance ??= [
+      "governance.router",
+      "governance.planner",
+      "governance.judge",
+      "governance.dispatcher",
+      "governance.publisher"
+    ];
+    snapshot.allowedSpecialists ??= [
+      "expert.builder",
+      "expert.tester",
+      "expert.debugger",
+      "expert.security",
+      "expert.architect",
+      "expert.documenter",
+      "expert.data",
+      "expert.operations",
+      "expert.migrator"
+    ];
+    snapshot.activeAgents ??= [];
+    snapshot.agentInstances ??= [];
   }
 
   private stateAfterSubmission(

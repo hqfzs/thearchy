@@ -106,6 +106,20 @@ test("desktop install registers an installed-by-default personal plugin", async 
   await access(
     join(pluginPath, "skills", "thearchy", "scripts", "assets", "templates")
   );
+  await assert.rejects(
+    access(
+      join(
+        pluginPath,
+        "skills",
+        "thearchy",
+        "scripts",
+        "assets",
+        "skills",
+        "thearchy",
+        "SKILL.md"
+      )
+    )
+  );
   const embeddedRuntime = join(
     pluginPath,
     "skills",

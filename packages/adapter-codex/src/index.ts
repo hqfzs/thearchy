@@ -69,11 +69,13 @@ ${modelPolicy}
 
 1. Run \`${coordinatorCommand} run start\` with the requested template and mode.
 2. Call \`${coordinatorCommand} run next <run-id> --json\`.
-3. Delegate only the role returned by the coordinator.
-4. Save each role output as an artifact and submit it with \`${coordinatorCommand} run submit\`.
-5. Stop for plan and merge approval when requested.
-6. Run detected verification commands before result review.
-7. Export the final report.
+3. Before spawning a child agent, reserve its slot with \`${coordinatorCommand} run claim <run-id> --role <role-id> --instance <instance-id>\`.
+4. Delegate only the claimed role and apply the subagent model policy.
+5. Save each role output as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Submission releases the slot.
+6. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
+7. Stop for plan and merge approval when requested.
+8. Run detected verification commands before result review.
+9. Export the final report.
 
 Do not let planner, implementer, and judge share hidden reasoning or approve their own work.
 Do not read secret files or execute commands that require approval without user consent.

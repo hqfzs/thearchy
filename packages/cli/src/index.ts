@@ -60,7 +60,9 @@ Usage:
   thearchy doctor
   thearchy run start --template <id> --task <text> [--mode auto|light|full]
   thearchy run next <run-id> [--json]
-  thearchy run submit <run-id> --role <role-id> --artifact <path> [--final]
+  thearchy run claim <run-id> --role <role-id> --instance <instance-id>
+  thearchy run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path> [--final]
+  thearchy run release <run-id> --instance <instance-id>
   thearchy run approve <run-id> --gate plan|merge
   thearchy run reject <run-id> --gate plan|result --reason <text>
   thearchy run status|resume|cancel <run-id> [--json]
@@ -128,15 +130,34 @@ async function handleRun(command: string | undefined, parsed: ParsedArgs): Promi
       if (!id) throw new Error("Missing run id");
       output(await service.status(id), optionBoolean(parsed, "json"));
       return;
+    case "claim":
+      if (!id) throw new Error("Missing run id");
+      output(
+        await service.claim(
+          id,
+          optionString(parsed, "role", true)!,
+          optionString(parsed, "instance", true)!
+        ),
+        true
+      );
+      return;
     case "submit":
       if (!id) throw new Error("Missing run id");
       output(
         await service.submit({
           runId: id,
           roleId: optionString(parsed, "role", true)!,
+          instanceId: optionString(parsed, "instance", true)!,
           artifactPath: optionString(parsed, "artifact", true)!,
           final: optionBoolean(parsed, "final")
         }),
+        true
+      );
+      return;
+    case "release":
+      if (!id) throw new Error("Missing run id");
+      output(
+        await service.release(id, optionString(parsed, "instance", true)!),
         true
       );
       return;
@@ -253,7 +274,13 @@ async function handleWorkspace(
         );
       }
       output(
-        await createWorktree(baseline.repositoryRoot, id, candidate),
+        await createWorktree(
+          baseline.repositoryRoot,
+          id,
+          candidate,
+          undefined,
+          snapshot.baselineCommit
+        ),
         true
       );
       return;

@@ -77,7 +77,12 @@ async function installEmbeddedCoordinator(output: string): Promise<{
   const runtimeAssets = join(scriptsDirectory, "assets");
   await mkdir(scriptsDirectory, { recursive: true });
   await cp(embeddedRuntimePath(), runtimePath, { force: true });
-  await cp(assetsDirectory(), runtimeAssets, { recursive: true, force: true });
+  await mkdir(runtimeAssets, { recursive: true });
+  await cp(
+    join(assetsDirectory(), "templates"),
+    join(runtimeAssets, "templates"),
+    { recursive: true, force: true }
+  );
 
   const command = `node "${runtimePath}"`;
   const windowsLauncher = join(scriptsDirectory, "thearchy.cmd");

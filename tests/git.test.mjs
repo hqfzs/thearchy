@@ -33,7 +33,17 @@ test("creates and removes an isolated candidate worktree", async () => {
   assert.equal(baseline.available, true);
   assert.equal(baseline.dirty, false);
 
-  const record = await createWorktree(repository, "run-1", "candidate-a");
+  await writeFile(join(repository, "later.txt"), "later\n");
+  git(repository, ["add", "later.txt"]);
+  git(repository, ["commit", "-m", "later"]);
+
+  const record = await createWorktree(
+    repository,
+    "run-1",
+    "candidate-a",
+    undefined,
+    baseline.commit
+  );
   assert.equal(record.baselineCommit, baseline.commit);
   assert.ok(listWorktrees(repository).includes(record.path));
 

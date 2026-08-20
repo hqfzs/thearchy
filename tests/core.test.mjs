@@ -23,6 +23,24 @@ async function artifact(directory, name, content = name) {
   return path;
 }
 
+async function submitAs(
+  coordinator,
+  snapshot,
+  roleId,
+  instanceId,
+  artifactPath,
+  options = {}
+) {
+  await coordinator.claim(snapshot.id, roleId, instanceId);
+  return coordinator.submit({
+    runId: snapshot.id,
+    roleId,
+    instanceId,
+    artifactPath,
+    ...options
+  });
+}
+
 test("loads and validates all official template roles", async () => {
   const template = await loadTemplate(join(root, "templates", "feature-delivery.yaml"));
   assert.equal(template.metadata.id, "feature-delivery");
@@ -73,64 +91,82 @@ test("coordinator enforces the complete governance flow", async () => {
   });
   assert.equal(nextAction(snapshot).roleId, "governance.router");
 
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.router",
-    artifactPath: await artifact(artifacts, "classification.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.router",
+    "router-1",
+    await artifact(artifacts, "classification.md")
+  );
   assert.equal(snapshot.state, "classified");
 
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.planner",
-    artifactPath: await artifact(artifacts, "draft-plan.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    "planner-a",
+    await artifact(artifacts, "draft-plan.md")
+  );
   assert.equal(snapshot.state, "planning");
 
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.planner",
-    artifactPath: await artifact(artifacts, "final-plan.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    "planner-b",
+    await artifact(artifacts, "final-plan.md")
+  );
   assert.equal(snapshot.state, "plan_review");
 
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.judge",
-    artifactPath: await artifact(artifacts, "plan-verdict.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.judge",
+    "judge-plan",
+    await artifact(artifacts, "plan-verdict.md")
+  );
   assert.equal(snapshot.state, "awaiting_plan_approval");
 
   snapshot = await coordinator.approve(snapshot.id, "plan");
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.dispatcher",
-    artifactPath: await artifact(artifacts, "work-orders.md")
-  });
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "expert.builder",
-    artifactPath: await artifact(artifacts, "implementation.md"),
-    final: true
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.dispatcher",
+    "dispatcher-1",
+    await artifact(artifacts, "work-orders.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "expert.builder",
+    "builder-1",
+    await artifact(artifacts, "implementation.md"),
+    { final: true }
+  );
   assert.equal(snapshot.state, "verification");
 
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "expert.tester",
-    artifactPath: await artifact(artifacts, "verification.md")
-  });
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.judge",
-    artifactPath: await artifact(artifacts, "result-verdict.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "expert.tester",
+    "tester-1",
+    await artifact(artifacts, "verification.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.judge",
+    "judge-result",
+    await artifact(artifacts, "result-verdict.md")
+  );
   snapshot = await coordinator.approve(snapshot.id, "merge");
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.publisher",
-    artifactPath: await artifact(artifacts, "delivery.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.publisher",
+    "publisher-1",
+    await artifact(artifacts, "delivery.md")
+  );
   assert.equal(snapshot.state, "completed");
 
   const events = await coordinator.store.events(snapshot.id);
@@ -161,32 +197,131 @@ test("rejects plans and stops after the configured rework budget", async () => {
 
   const files = join(directory, "artifacts");
   await mkdir(files);
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.router",
-    artifactPath: await artifact(files, "c.md")
-  });
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.planner",
-    artifactPath: await artifact(files, "p1.md")
-  });
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "governance.planner",
-    artifactPath: await artifact(files, "p2.md")
-  });
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.router",
+    "router-1",
+    await artifact(files, "c.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    "planner-a",
+    await artifact(files, "p1.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    "planner-b",
+    await artifact(files, "p2.md")
+  );
 
   for (let count = 0; count < 2; count += 1) {
     snapshot = await coordinator.reject(snapshot.id, "plan", "missing evidence");
     assert.equal(snapshot.state, "rework");
     snapshot = await coordinator.resume(snapshot.id);
-    snapshot = await coordinator.submit({
-      runId: snapshot.id,
-      roleId: "governance.planner",
-      artifactPath: await artifact(files, `retry-${count}.md`)
-    });
+    snapshot = await submitAs(
+      coordinator,
+      snapshot,
+      "governance.planner",
+      `planner-retry-${count}`,
+      await artifact(files, `retry-${count}.md`)
+    );
   }
   snapshot = await coordinator.reject(snapshot.id, "plan", "still incomplete");
   assert.equal(snapshot.state, "blocked");
+});
+
+async function advanceToExecuting(coordinator, snapshot, directory) {
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.router",
+    "router-budget",
+    await artifact(directory, "budget-classification.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    "planner-budget-a",
+    await artifact(directory, "budget-plan-a.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    "planner-budget-b",
+    await artifact(directory, "budget-plan-b.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "governance.judge",
+    "judge-budget",
+    await artifact(directory, "budget-plan-verdict.md")
+  );
+  snapshot = await coordinator.approve(snapshot.id, "plan");
+  return submitAs(
+    coordinator,
+    snapshot,
+    "governance.dispatcher",
+    "dispatcher-budget",
+    await artifact(directory, "budget-work-orders.md")
+  );
+}
+
+test("enforces template specialists, concurrency, and competing implementation budgets", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-budget-"));
+  const artifacts = join(directory, "artifacts");
+  await mkdir(artifacts);
+
+  const codeReview = await loadTemplate(
+    join(root, "templates", "code-review.yaml")
+  );
+  const reviewCoordinator = new Coordinator(
+    new RunStore(join(directory, "review-state"))
+  );
+  let reviewRun = await reviewCoordinator.start({
+    task: "Review the current change",
+    template: codeReview,
+    requestedMode: "full",
+    cwd: directory
+  });
+  reviewRun = await advanceToExecuting(reviewCoordinator, reviewRun, artifacts);
+  await assert.rejects(
+    reviewCoordinator.claim(reviewRun.id, "expert.builder", "builder-forbidden"),
+    /cannot submit/
+  );
+
+  const feature = await loadTemplate(
+    join(root, "templates", "feature-delivery.yaml")
+  );
+  const budgetCoordinator = new Coordinator(
+    new RunStore(join(directory, "budget-state"))
+  );
+  let budgetRun = await budgetCoordinator.start({
+    task: "Implement a large feature",
+    template: feature,
+    requestedMode: "full",
+    cwd: directory,
+    budgetOverrides: { maxConcurrency: 2, maxAgents: 4 }
+  });
+  budgetRun = await advanceToExecuting(budgetCoordinator, budgetRun, artifacts);
+  await budgetCoordinator.claim(budgetRun.id, "expert.builder", "builder-1");
+  await budgetCoordinator.claim(budgetRun.id, "expert.architect", "architect-1");
+  await assert.rejects(
+    budgetCoordinator.claim(budgetRun.id, "expert.data", "data-1"),
+    /concurrency budget exceeded/
+  );
+  await budgetCoordinator.release(budgetRun.id, "architect-1");
+  await budgetCoordinator.claim(budgetRun.id, "expert.builder", "builder-2");
+  await budgetCoordinator.release(budgetRun.id, "builder-2");
+  await assert.rejects(
+    budgetCoordinator.claim(budgetRun.id, "expert.builder", "builder-3"),
+    /Competing implementation budget exceeded/
+  );
 });
