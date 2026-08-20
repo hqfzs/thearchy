@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["date", "host", "runs"],
+  "properties": {
+    "date": { "type": "string", "format": "date" },
+    "host": { "enum": ["codex", "claude"] },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "caseId",
+          "strategy",
+          "completed",
+          "testsPassed",
+          "seededDefectsFound",
+          "regressions",
+          "durationSeconds"
+        ],
+        "properties": {
+          "caseId": { "type": "string" },
+          "strategy": { "enum": ["single-agent", "thearchy"] },
+          "completed": { "type": "boolean" },
+          "testsPassed": { "type": ["boolean", "null"] },
+          "seededDefectsFound": { "type": "integer", "minimum": 0 },
+          "regressions": { "type": "integer", "minimum": 0 },
+          "durationSeconds": { "type": "number", "minimum": 0 },
+          "agentCount": { "type": "integer", "minimum": 1 },
+          "usage": { "type": ["object", "null"] }
+        }
+      }
+    }
+  }
+}

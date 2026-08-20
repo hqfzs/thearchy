@@ -11,9 +11,10 @@
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "build": "tsc -b && node scripts/copy-assets.mjs && node scripts/bundle-cli.mjs",
-    "test": "npm run build && node --test tests/core.test.mjs tests/adapters.test.mjs tests/cli.test.mjs tests/git.test.mjs",
+    "test": "npm run build && npm run validate:evals && node --test tests/core.test.mjs tests/adapters.test.mjs tests/cli.test.mjs tests/git.test.mjs",
     "typecheck": "tsc -b --pretty false",
     "validate:templates": "npm run build && node packages/cli/dist/index.js template validate templates",
+    "validate:evals": "node scripts/validate-evals.mjs",
     "pack:check": "npm pack --workspace packages/cli --dry-run",
     "sbom": "npm sbom --sbom-format spdx > thearchy.spdx.json"
   },

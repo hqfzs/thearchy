@@ -11,3 +11,4 @@ thearchy.spdx.json
 .thearchy/
 .git/thearchy/
 worktrees/
+evals/results/

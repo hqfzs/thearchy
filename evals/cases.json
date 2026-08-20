@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "feature-js",
+      "template": "feature-delivery",
+      "language": "javascript",
+      "fixture": "evals/fixtures/javascript",
+      "task": "Add a rate-limited login-attempt counter with tests.",
+      "seededDefects": []
+    },
+    {
+      "id": "feature-py",
+      "template": "feature-delivery",
+      "language": "python",
+      "fixture": "evals/fixtures/python",
+      "task": "Add account locking after repeated failed authentication with tests.",
+      "seededDefects": []
+    },
+    {
+      "id": "bug-js",
+      "template": "bug-repair",
+      "language": "javascript",
+      "fixture": "evals/fixtures/javascript",
+      "task": "Fix case-sensitive username lookup without breaking existing callers.",
+      "seededDefects": ["JS-CASE-LOOKUP"]
+    },
+    {
+      "id": "bug-py",
+      "template": "bug-repair",
+      "language": "python",
+      "fixture": "evals/fixtures/python",
+      "task": "Fix whitespace-only usernames being accepted.",
+      "seededDefects": ["PY-WHITESPACE-USER"]
+    },
+    {
+      "id": "review-js",
+      "template": "code-review",
+      "language": "javascript",
+      "fixture": "evals/fixtures/javascript",
+      "task": "Review the authentication module and report actionable defects.",
+      "seededDefects": ["JS-CASE-LOOKUP", "JS-TIMING-COMPARE"]
+    },
+    {
+      "id": "review-py",
+      "template": "code-review",
+      "language": "python",
+      "fixture": "evals/fixtures/python",
+      "task": "Review the authentication module and report actionable defects.",
+      "seededDefects": ["PY-WHITESPACE-USER", "PY-PLAIN-COMPARE"]
+    },
+    {
+      "id": "security-js",
+      "template": "security-review",
+      "language": "javascript",
+      "fixture": "evals/fixtures/javascript",
+      "task": "Perform a security review of credential comparison and input handling.",
+      "seededDefects": ["JS-TIMING-COMPARE"]
+    },
+    {
+      "id": "security-py",
+      "template": "security-review",
+      "language": "python",
+      "fixture": "evals/fixtures/python",
+      "task": "Perform a security review of credential comparison and input handling.",
+      "seededDefects": ["PY-PLAIN-COMPARE"]
+    },
+    {
+      "id": "migration-js",
+      "template": "refactor-migration",
+      "language": "javascript",
+      "fixture": "evals/fixtures/javascript",
+      "task": "Migrate authentication results from booleans to typed result objects with compatibility.",
+      "seededDefects": []
+    },
+    {
+      "id": "migration-py",
+      "template": "refactor-migration",
+      "language": "python",
+      "fixture": "evals/fixtures/python",
+      "task": "Migrate authentication results from booleans to dataclass results with compatibility.",
+      "seededDefects": []
+    }
+  ]
+}

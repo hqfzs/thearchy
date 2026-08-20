@@ -123,6 +123,7 @@ thearchy run resume <run-id>
 - [架构](docs/ARCHITECTURE.md)
 - [模板规范](docs/TEMPLATE-SPEC.md)
 - [威胁模型](docs/THREAT-MODEL.md)
+- [质量评测](evals/README.md)
 - [English quick start](README.en.md)
 
 ## 许可证
