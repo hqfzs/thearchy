@@ -45,3 +45,6 @@ child agents with concurrency two and an eight-minute budget. Routing,
 dispatching, and publishing moved to the root agent; the same independent judge
 is reused for plan and result review. A second controlled pre-benchmark is
 required before release.
+
+The second run is documented in
+[PREBENCHMARK-2-2026-08-20.md](PREBENCHMARK-2-2026-08-20.md).
