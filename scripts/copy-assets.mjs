@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const destination = resolve("packages/cli/dist/assets");
 await mkdir(destination, { recursive: true });
 
-for (const name of ["templates", "roles", "skills"]) {
+for (const name of ["templates", "roles", "skills", "assets"]) {
   await cp(resolve(name), resolve(destination, name), { recursive: true, force: true });
 }
 

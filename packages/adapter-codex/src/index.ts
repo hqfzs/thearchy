@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   AdapterCompileResult,
@@ -100,10 +100,17 @@ export class CodexAdapter implements HostAdapter {
     const roleDirectory = join(skillDirectory, "references");
     await mkdir(manifestDirectory, { recursive: true });
     await mkdir(roleDirectory, { recursive: true });
+    const pluginAssetsDirectory = join(outputDirectory, "assets");
+    if (options.pluginAssetsDirectory) {
+      await cp(options.pluginAssetsDirectory, pluginAssetsDirectory, {
+        recursive: true,
+        force: true
+      });
+    }
 
     const manifest = {
       name: "thearchy",
-      version: "0.1.0-beta.0",
+      version: options.version ?? "0.1.0-beta.0",
       description: "Deterministic multi-agent quality governance for Codex.",
       author: { name: "Thearchy Contributors" },
       license: "Apache-2.0",
@@ -122,7 +129,14 @@ export class CodexAdapter implements HostAdapter {
           "Use Thearchy to diagnose this bug.",
           "Use Thearchy to review this change."
         ],
-        brandColor: "#465DFF"
+        brandColor: "#465DFF",
+        ...(options.pluginAssetsDirectory
+          ? {
+              composerIcon: "./assets/composer-icon.png",
+              logo: "./assets/logo.png",
+              logoDark: "./assets/logo-dark.png"
+            }
+          : {})
       }
     };
 
@@ -130,6 +144,13 @@ export class CodexAdapter implements HostAdapter {
     const manifestPath = join(manifestDirectory, "plugin.json");
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
     files.push(manifestPath);
+    if (options.pluginAssetsDirectory) {
+      files.push(
+        join(pluginAssetsDirectory, "composer-icon.png"),
+        join(pluginAssetsDirectory, "logo.png"),
+        join(pluginAssetsDirectory, "logo-dark.png")
+      );
+    }
 
     const skillPath = join(skillDirectory, "SKILL.md");
     await writeFile(skillPath, renderSkill(templates, roles, options.runtimeCommand));

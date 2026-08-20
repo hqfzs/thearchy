@@ -174,6 +174,8 @@ export interface AdapterCompileResult {
 export interface AdapterCompileOptions {
   runtimeCommand?: string;
   desktopInstall?: boolean;
+  pluginAssetsDirectory?: string;
+  version?: string;
 }
 
 export interface HostAdapter {

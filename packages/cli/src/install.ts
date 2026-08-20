@@ -156,6 +156,10 @@ export async function installHosts(
 ): Promise<AdapterCompileResult[]> {
   const templates = await allTemplates();
   const results: AdapterCompileResult[] = [];
+  const cachebuster = new Date()
+    .toISOString()
+    .replaceAll(/[-:TZ.]/g, "")
+    .slice(0, 14);
   for (const host of hosts) {
     const output =
       customOutput && hosts.length === 1
@@ -170,7 +174,13 @@ export async function installHosts(
       host === "codex" ? await installEmbeddedCoordinator(output) : undefined;
     const result = await adapter(host).compile(output, templates, [...ALL_ROLES], {
       ...(embedded ? { runtimeCommand: embedded.command } : {}),
-      desktopInstall: host === "codex"
+      desktopInstall: host === "codex",
+      ...(host === "codex"
+        ? {
+            pluginAssetsDirectory: join(assetsDirectory(), "assets"),
+            version: `0.1.0-beta.0+codex.local-${cachebuster}`
+          }
+        : {})
     });
     if (embedded) result.files.push(...embedded.files);
     if (host === "codex" && !customOutput) {

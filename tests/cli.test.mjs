@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp } from "node:fs/promises";
+import { access, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -35,6 +35,15 @@ test("bundled CLI compiles Codex and Claude adapters", async () => {
   );
   assert.equal(result.length, 2);
   await access(join(output, "codex", ".codex-plugin", "plugin.json"));
+  await access(join(output, "codex", "assets", "composer-icon.png"));
+  const codexManifest = JSON.parse(
+    await readFile(
+      join(output, "codex", ".codex-plugin", "plugin.json"),
+      "utf8"
+    )
+  );
+  assert.equal(codexManifest.interface.composerIcon, "./assets/composer-icon.png");
+  assert.match(codexManifest.version, /\+codex\.local-\d{14}$/);
   await access(
     join(
       output,

@@ -29,6 +29,9 @@
       "Use Thearchy to diagnose and fix this bug.",
       "Use Thearchy to perform a security review."
     ],
-    "brandColor": "#465DFF"
+    "brandColor": "#465DFF",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo-dark.png"
   }
 }

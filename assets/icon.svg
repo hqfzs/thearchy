@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img">
+  <title>Thearchy — governed multi-agent council</title>
+  <defs>
+    <linearGradient id="bg" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17204A"/>
+      <stop offset="1" stop-color="#465DFF"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="9" y1="5" x2="15" y2="19" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF2A8"/>
+      <stop offset="1" stop-color="#F2B73F"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="21" height="21" rx="5.5" fill="none" stroke="#8192FF" stroke-opacity=".55"/>
+  <circle cx="12" cy="12" r="7.2" fill="none" stroke="#AEB8FF" stroke-opacity=".42" stroke-width=".9"/>
+  <circle cx="12" cy="4.8" r="1.05" fill="#F7CE63"/>
+  <circle cx="5.8" cy="15.6" r="1.05" fill="#F7CE63"/>
+  <circle cx="18.2" cy="15.6" r="1.05" fill="#F7CE63"/>
+  <path d="M13.3 5.6 8.2 13h3.45l-1 5.4 5.15-7.55h-3.5l1-5.25Z" fill="url(#bolt)" stroke="#FFF5BF" stroke-width=".35" stroke-linejoin="round"/>
+</svg>
