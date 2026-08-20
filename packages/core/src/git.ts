@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -43,6 +44,14 @@ export interface WorktreeRecord {
   baselineCommit: string;
 }
 
+function canonicalPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
 export async function createWorktree(
   repositoryRoot: string,
   runId: string,
@@ -58,9 +67,12 @@ export async function createWorktree(
     baseDirectory ?? join(repositoryRoot, ".git", "thearchy", "worktrees")
   );
   await mkdir(parent, { recursive: true });
-  const path = join(parent, `${runId}-${candidate}`);
-  git(["worktree", "add", "-b", branch, path, baselineCommit], repositoryRoot);
-  return { path, branch, baselineCommit };
+  const requestedPath = join(parent, `${runId}-${candidate}`);
+  git(
+    ["worktree", "add", "-b", branch, requestedPath, baselineCommit],
+    repositoryRoot
+  );
+  return { path: canonicalPath(requestedPath), branch, baselineCommit };
 }
 
 export function removeWorktree(
@@ -80,5 +92,5 @@ export function listWorktrees(repositoryRoot: string): string[] {
   return output
     .split(/\r?\n/)
     .filter((line) => line.startsWith("worktree "))
-    .map((line) => resolve(line.slice("worktree ".length)));
+    .map((line) => canonicalPath(line.slice("worktree ".length)));
 }
