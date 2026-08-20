@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
@@ -18,6 +18,11 @@ function git(cwd, args) {
     windowsHide: true
   });
   if (result.status !== 0) throw new Error(result.stderr);
+}
+
+function comparablePath(path) {
+  const normalized = resolve(path).replaceAll("\\", "/");
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 test("creates and removes an isolated candidate worktree", async () => {
@@ -45,8 +50,16 @@ test("creates and removes an isolated candidate worktree", async () => {
     baseline.commit
   );
   assert.equal(record.baselineCommit, baseline.commit);
-  assert.ok(listWorktrees(repository).includes(record.path));
+  assert.ok(
+    listWorktrees(repository)
+      .map(comparablePath)
+      .includes(comparablePath(record.path))
+  );
 
   removeWorktree(repository, record.path);
-  assert.ok(!listWorktrees(repository).includes(record.path));
+  assert.ok(
+    !listWorktrees(repository)
+      .map(comparablePath)
+      .includes(comparablePath(record.path))
+  );
 });
