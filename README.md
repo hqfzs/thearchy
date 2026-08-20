@@ -2,7 +2,7 @@
 
 神治是一套运行在本地 AI 编码工具中的多 Agent 质量治理系统。它不提供新的模型服务，而是在 Codex 与 Claude Code之上加入确定性的规划、裁决、执行、验证和交付状态机。
 
-> 当前版本：`0.1.0-beta.0`。这是可运行的 Beta 基础实现，不应直接用于未经人工确认的生产发布。
+> 当前版本：`0.2.0-beta.1`。这是可运行的 Beta 版本，不应直接用于未经人工确认的生产发布。
 
 ## 核心特性
 
@@ -96,11 +96,30 @@ thearchy run start \
 thearchy run next <run-id> --json
 ```
 
+当返回值包含 `interaction` 时，主 Agent 会优先调用可选项询问组件。选择完成后：
+
+```bash
+thearchy run decide <run-id> \
+  --request <decision-id> \
+  --choice <option-id>
+```
+
+创建子 Agent 前必须登记模型和租约：
+
+```bash
+thearchy run claim <run-id> \
+  --role governance.router \
+  --instance router-1 \
+  --model gpt-5.6-luna \
+  --reasoning-effort max
+```
+
 保存角色产物后提交：
 
 ```bash
 thearchy run submit <run-id> \
   --role governance.router \
+  --instance router-1 \
   --artifact ./artifacts/classification.md
 ```
 
@@ -109,8 +128,23 @@ thearchy run submit <run-id> \
 ```bash
 thearchy run submit <run-id> \
   --role expert.builder \
+  --instance builder-1 \
   --artifact ./artifacts/implementation.md \
   --final
+```
+
+长时间运行的子 Agent 需要续租：
+
+```bash
+thearchy run heartbeat <run-id> --instance builder-1
+```
+
+高风险操作必须先发起询问：
+
+```bash
+thearchy run request-operation <run-id> \
+  --type dependency-install \
+  --summary "安装新的鉴权依赖"
 ```
 
 审批：
@@ -143,6 +177,7 @@ thearchy run resume <run-id>
 - 未提交修改不会进入候选 worktree。
 - 神治不会自动 stash 或提交用户修改。
 - 用户必须查看 diff、测试和裁决证据后批准合并。
+- 完整模式可以比较多个候选，并由询问组件选择最终候选。
 
 ## 安全规则
 

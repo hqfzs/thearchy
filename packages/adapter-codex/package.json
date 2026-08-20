@@ -1,11 +1,11 @@
 {
   "name": "@thearchy/adapter-codex",
-  "version": "0.1.0-beta.0",
+  "version": "0.2.0-beta.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@thearchy/core": "0.1.0-beta.0"
+    "@thearchy/core": "0.2.0-beta.1"
   }
 }

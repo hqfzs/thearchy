@@ -1,11 +1,13 @@
 {
   "name": "thearchy",
-  "version": "0.1.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "Local multi-agent quality governance for software development.",
   "author": {
     "name": "Thearchy Contributors"
   },
   "license": "Apache-2.0",
+  "homepage": "https://github.com/hqfzs/thearchy",
+  "repository": "https://github.com/hqfzs/thearchy",
   "keywords": [
     "agents",
     "multi-agent",

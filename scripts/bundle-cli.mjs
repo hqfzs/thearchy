@@ -12,11 +12,13 @@ await build({
   entryPoints: ["./packages/cli/dist/index.js"],
   outfile: "./packages/cli/dist/bin/thearchy.js",
   bundle: true,
-  external: ["yaml"],
   platform: "node",
   target: "node22",
   format: "esm",
   sourcemap: true,
+  banner: {
+    js: "import { createRequire as __thearchyCreateRequire } from 'node:module'; const require = __thearchyCreateRequire(import.meta.url);"
+  },
   legalComments: "none"
 });
 

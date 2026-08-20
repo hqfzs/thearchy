@@ -2,6 +2,8 @@ export * from "./budget.js";
 export * from "./commands.js";
 export * from "./coordinator.js";
 export * from "./git.js";
+export * from "./migration.js";
+export * from "./policy.js";
 export * from "./report.js";
 export * from "./risk.js";
 export * from "./roles.js";

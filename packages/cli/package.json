@@ -1,7 +1,16 @@
 {
   "name": "thearchy-cli",
-  "version": "0.1.0-beta.0",
+  "version": "0.2.0-beta.1",
   "description": "神治（Thearchy）— deterministic multi-agent quality governance for coding agents.",
+  "homepage": "https://github.com/hqfzs/thearchy#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hqfzs/thearchy.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/hqfzs/thearchy/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
@@ -22,12 +31,9 @@
     "access": "public",
     "provenance": true
   },
-  "dependencies": {
-    "yaml": "^2.8.1"
-  },
   "devDependencies": {
-    "@thearchy/adapter-claude": "0.1.0-beta.0",
-    "@thearchy/adapter-codex": "0.1.0-beta.0",
-    "@thearchy/core": "0.1.0-beta.0"
+    "@thearchy/adapter-claude": "0.2.0-beta.1",
+    "@thearchy/adapter-codex": "0.2.0-beta.1",
+    "@thearchy/core": "0.2.0-beta.1"
   }
 }

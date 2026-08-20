@@ -44,6 +44,21 @@ export interface WorktreeRecord {
   baselineCommit: string;
 }
 
+export interface CandidateDiffSummary {
+  branch: string;
+  filesChanged: number;
+  insertions: number;
+  deletions: number;
+  files: string[];
+}
+
+export interface MergeCandidateResult {
+  success: boolean;
+  conflicted: boolean;
+  commit?: string;
+  message: string;
+}
+
 function canonicalPath(path: string): string {
   try {
     return realpathSync(path);
@@ -93,4 +108,73 @@ export function listWorktrees(repositoryRoot: string): string[] {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("worktree "))
     .map((line) => canonicalPath(line.slice("worktree ".length)));
+}
+
+export function candidateDiffSummary(
+  repositoryRoot: string,
+  baselineCommit: string,
+  branch: string
+): CandidateDiffSummary {
+  git(["cat-file", "-e", `${baselineCommit}^{commit}`], repositoryRoot);
+  git(["cat-file", "-e", `${branch}^{commit}`], repositoryRoot);
+  const numstat = git(
+    ["diff", "--numstat", `${baselineCommit}..${branch}`],
+    repositoryRoot
+  );
+  const files: string[] = [];
+  let insertions = 0;
+  let deletions = 0;
+  for (const line of numstat.split(/\r?\n/).filter(Boolean)) {
+    const [added, removed, file] = line.split("\t");
+    if (file) files.push(file);
+    if (added && added !== "-") insertions += Number(added);
+    if (removed && removed !== "-") deletions += Number(removed);
+  }
+  return {
+    branch,
+    filesChanged: files.length,
+    insertions,
+    deletions,
+    files
+  };
+}
+
+export function mergeCandidate(
+  repositoryRoot: string,
+  branch: string
+): MergeCandidateResult {
+  if (git(["status", "--porcelain"], repositoryRoot)) {
+    throw new Error("Repository must be clean before candidate integration");
+  }
+  const result = spawnSync(
+    "git",
+    ["merge", "--no-ff", "--no-edit", branch],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      windowsHide: true
+    }
+  );
+  if (result.status === 0) {
+    return {
+      success: true,
+      conflicted: false,
+      commit: git(["rev-parse", "HEAD"], repositoryRoot),
+      message: result.stdout.trim() || `Merged ${branch}`
+    };
+  }
+  let conflicts = "";
+  try {
+    conflicts = git(
+      ["diff", "--name-only", "--diff-filter=U"],
+      repositoryRoot
+    );
+  } catch {
+    conflicts = "";
+  }
+  return {
+    success: false,
+    conflicted: Boolean(conflicts),
+    message: result.stderr.trim() || result.stdout.trim() || `Merge failed: ${branch}`
+  };
 }

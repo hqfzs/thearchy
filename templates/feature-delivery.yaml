@@ -48,6 +48,7 @@ spec:
     dependencyInstall: approval
     destructive: approval
     externalWrite: approval
+    sensitiveRead: approval
   verification:
     required: [test]
     optional: [lint, build, typecheck, security-scan]

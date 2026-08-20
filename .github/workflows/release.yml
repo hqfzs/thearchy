@@ -21,16 +21,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run validate:plugin
+      - run: npm run test:stability
+      - run: npm run test:package
       - run: npm run sbom
       - run: mkdir -p artifacts
       - run: npm pack --workspace packages/cli --pack-destination artifacts
       - run: sha256sum artifacts/*.tgz thearchy.spdx.json > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
+          prerelease: true
           files: |
             artifacts/*.tgz
             thearchy.spdx.json
             SHA256SUMS
-      - run: npm publish --workspace packages/cli --provenance --access public
+      - run: npm publish --workspace packages/cli --provenance --access public --tag beta
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

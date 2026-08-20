@@ -21,7 +21,7 @@ function run(args, cwd = process.cwd(), env = {}) {
 }
 
 test("bundled CLI reports its version and templates", () => {
-  assert.equal(run(["--version"]), "0.1.0-beta.0");
+  assert.equal(run(["--version"]), "0.2.0-beta.1");
   const templates = JSON.parse(run(["template", "list"]));
   assert.equal(templates.length, 5);
   assert.ok(templates.some((template) => template.id === "feature-delivery"));
@@ -71,7 +71,7 @@ test("embedded coordinator runs without a global CLI installation", () => {
     windowsHide: true
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), "0.1.0-beta.0");
+  assert.equal(result.stdout.trim(), "0.2.0-beta.1");
 });
 
 test("desktop install registers an installed-by-default personal plugin", async () => {

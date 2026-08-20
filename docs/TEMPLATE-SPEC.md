@@ -26,6 +26,16 @@ kind: TeamTemplate
 
 模板只能请求 `test`、`lint`、`build`、`typecheck`、`security-scan` 能力。实际命令由核心从项目文件中检测。
 
+权限字段包括：
+
+- `network`
+- `dependencyInstall`
+- `destructive`
+- `externalWrite`
+- `sensitiveRead`
+
+值只能是 `deny` 或 `approval`。`approval` 表示必须产生风险决策并等待询问组件结果。
+
 ## 版本策略
 
 - `v1alpha1` 允许在 Beta 期间演进。

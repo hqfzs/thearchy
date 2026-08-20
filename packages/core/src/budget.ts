@@ -11,7 +11,8 @@ export const DEFAULT_BUDGETS: Record<EffectiveRunMode, RunBudget> = {
     timeoutMinutes: 20,
     maxPlanReworks: 2,
     maxResultReworks: 1,
-    maxCompetingImplementations: 1
+    maxCompetingImplementations: 1,
+    leaseTimeoutMinutes: 5
   },
   full: {
     maxAgents: 8,
@@ -19,7 +20,8 @@ export const DEFAULT_BUDGETS: Record<EffectiveRunMode, RunBudget> = {
     timeoutMinutes: 60,
     maxPlanReworks: 2,
     maxResultReworks: 1,
-    maxCompetingImplementations: 2
+    maxCompetingImplementations: 2,
+    leaseTimeoutMinutes: 10
   }
 };
 
@@ -51,6 +53,7 @@ export function resolveBudget(
     timeoutMinutes: resolved.timeoutMinutes,
     maxPlanReworks: resolved.maxPlanReworks,
     maxResultReworks: resolved.maxResultReworks,
-    maxCompetingImplementations: resolved.maxCompetingImplementations
+    maxCompetingImplementations: resolved.maxCompetingImplementations,
+    leaseTimeoutMinutes: resolved.leaseTimeoutMinutes
   };
 }

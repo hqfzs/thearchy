@@ -56,7 +56,8 @@ function parseProfile(value: unknown, location: string): TemplateProfile {
     "timeoutMinutes",
     "maxPlanReworks",
     "maxResultReworks",
-    "maxCompetingImplementations"
+    "maxCompetingImplementations",
+    "leaseTimeoutMinutes"
   ] as const) {
     const raw = profile[key];
     if (raw !== undefined) {
@@ -149,7 +150,11 @@ export function validateTemplate(input: unknown): TeamTemplate {
         network: parsePermission("network"),
         dependencyInstall: parsePermission("dependencyInstall"),
         destructive: parsePermission("destructive"),
-        externalWrite: parsePermission("externalWrite")
+        externalWrite: parsePermission("externalWrite"),
+        sensitiveRead:
+          permissions.sensitiveRead === undefined
+            ? "deny"
+            : parsePermission("sensitiveRead")
       },
       verification: {
         required: parseCapabilities(

@@ -1,23 +1,99 @@
 import type { NextAction, RunSnapshot, RunState } from "./types.js";
 
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
-  created: ["classified", "cancelled", "failed"],
-  classified: ["planning", "cancelled", "failed"],
-  planning: ["plan_review", "cancelled", "failed"],
-  plan_review: ["awaiting_plan_approval", "rework", "blocked", "cancelled", "failed"],
-  awaiting_plan_approval: ["dispatching", "rework", "cancelled", "failed"],
-  dispatching: ["executing", "blocked", "cancelled", "failed"],
-  executing: ["verification", "blocked", "cancelled", "failed"],
-  verification: ["result_review", "blocked", "cancelled", "failed"],
-  result_review: [
-    "awaiting_merge_approval",
+  created: [
+    "classified",
+    "awaiting_mode_approval",
+    "awaiting_conflict_decision",
+    "cancelled",
+    "failed"
+  ],
+  classified: [
+    "awaiting_mode_approval",
+    "planning",
+    "awaiting_conflict_decision",
+    "cancelled",
+    "failed"
+  ],
+  awaiting_mode_approval: ["classified", "cancelled", "failed"],
+  planning: [
+    "plan_review",
+    "awaiting_conflict_decision",
+    "cancelled",
+    "failed"
+  ],
+  plan_review: [
+    "awaiting_plan_approval",
+    "awaiting_conflict_decision",
     "rework",
     "blocked",
     "cancelled",
     "failed"
   ],
+  awaiting_plan_approval: ["dispatching", "rework", "cancelled", "failed"],
+  dispatching: [
+    "executing",
+    "awaiting_conflict_decision",
+    "blocked",
+    "cancelled",
+    "failed"
+  ],
+  executing: [
+    "awaiting_risk_approval",
+    "verification",
+    "blocked",
+    "awaiting_conflict_decision",
+    "cancelled",
+    "failed"
+  ],
+  awaiting_risk_approval: [
+    "executing",
+    "integrating",
+    "verification",
+    "blocked",
+    "cancelled",
+    "failed"
+  ],
+  verification: [
+    "awaiting_risk_approval",
+    "result_review",
+    "awaiting_conflict_decision",
+    "blocked",
+    "cancelled",
+    "failed"
+  ],
+  result_review: [
+    "awaiting_merge_approval",
+    "awaiting_conflict_decision",
+    "rework",
+    "blocked",
+    "cancelled",
+    "failed"
+  ],
+  awaiting_conflict_decision: [
+    "created",
+    "classified",
+    "planning",
+    "plan_review",
+    "dispatching",
+    "executing",
+    "verification",
+    "result_review",
+    "integrating",
+    "completed",
+    "blocked",
+    "cancelled",
+    "failed"
+  ],
   awaiting_merge_approval: ["integrating", "rework", "cancelled", "failed"],
-  integrating: ["completed", "blocked", "cancelled", "failed"],
+  integrating: [
+    "awaiting_risk_approval",
+    "awaiting_conflict_decision",
+    "completed",
+    "blocked",
+    "cancelled",
+    "failed"
+  ],
   completed: [],
   rework: ["planning", "executing", "cancelled", "failed"],
   blocked: ["planning", "executing", "verification", "cancelled", "failed"],
@@ -36,6 +112,11 @@ export function assertTransition(from: RunState, to: RunState): void {
 }
 
 export function assertRunActive(snapshot: RunSnapshot): void {
+  if (snapshot.readOnlyRecovery) {
+    throw new Error(
+      `Run ${snapshot.id} is in read-only recovery: ${snapshot.readOnlyRecovery.reason}`
+    );
+  }
   if (["completed", "cancelled"].includes(snapshot.state)) {
     throw new Error(`Run ${snapshot.id} is terminal: ${snapshot.state}`);
   }
@@ -49,6 +130,14 @@ export function assertRunActive(snapshot: RunSnapshot): void {
 }
 
 export function nextAction(snapshot: RunSnapshot): NextAction {
+  const interaction = snapshot.decisions.find(
+    (decision) => decision.status === "pending"
+  );
+  const withPolicy = (action: NextAction): NextAction => ({
+    ...action,
+    ...(action.roleId ? { modelPolicy: snapshot.modelPolicy } : {}),
+    ...(interaction ? { interaction } : {})
+  });
   const actions: Record<RunState, NextAction> = {
     created: {
       state: "created",
@@ -66,6 +155,13 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
           ? "Produce two or three independent implementation plans."
           : "Produce one concise implementation plan.",
       requiresUserApproval: false
+    },
+    awaiting_mode_approval: {
+      state: "awaiting_mode_approval",
+      action: "choose-mode",
+      instructions:
+        "Invoke the inquiry component and resolve the pending light/full mode decision.",
+      requiresUserApproval: true
     },
     planning: {
       state: "planning",
@@ -103,6 +199,13 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
         "Assigned expert agents execute their work orders. Mark the final expert artifact with --final.",
       requiresUserApproval: false
     },
+    awaiting_risk_approval: {
+      state: "awaiting_risk_approval",
+      action: "approve-risk-operation",
+      instructions:
+        "Invoke the inquiry component. Do not execute the requested operation before a decision.",
+      requiresUserApproval: true
+    },
     verification: {
       state: "verification",
       roleId: "expert.tester",
@@ -118,6 +221,13 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
       instructions:
         "Independently review the diff, test evidence, unresolved risks, and delivery readiness.",
       requiresUserApproval: false
+    },
+    awaiting_conflict_decision: {
+      state: "awaiting_conflict_decision",
+      action: "resolve-conflict",
+      instructions:
+        "Invoke the inquiry component to retry, replace the agent, keep worktrees, or cancel.",
+      requiresUserApproval: true
     },
     awaiting_merge_approval: {
       state: "awaiting_merge_approval",
@@ -164,5 +274,5 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
       requiresUserApproval: true
     }
   };
-  return actions[snapshot.state];
+  return withPolicy(actions[snapshot.state]);
 }

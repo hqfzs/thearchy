@@ -39,6 +39,7 @@ spec:
     dependencyInstall: deny
     destructive: deny
     externalWrite: deny
+    sensitiveRead: approval
   verification:
     required: []
     optional: [test, lint, build, typecheck, security-scan]

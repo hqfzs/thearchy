@@ -10,6 +10,7 @@ import {
   writeFile
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { migrateRunSnapshot } from "./migration.js";
 import type { RunEvent, RunSnapshot } from "./types.js";
 
 interface LockHandle {
@@ -101,8 +102,24 @@ export class RunStore {
   }
 
   async load(runId: string): Promise<RunSnapshot> {
-    const source = await readFile(this.snapshotPath(runId), "utf8");
-    return JSON.parse(source) as RunSnapshot;
+    const snapshotPath = this.snapshotPath(runId);
+    const source = await readFile(snapshotPath, "utf8");
+    const migration = migrateRunSnapshot(JSON.parse(source));
+    if (migration.migrated) {
+      const backupPath = join(
+        this.runDirectory(runId),
+        `snapshot.schema-${String(migration.sourceSchemaVersion)}.backup.json`
+      );
+      try {
+        await writeFile(backupPath, source, { flag: "wx" });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+      const temporary = `${snapshotPath}.migration-${process.pid}`;
+      await writeFile(temporary, JSON.stringify(migration.snapshot, null, 2));
+      await replaceFile(temporary, snapshotPath);
+    }
+    return migration.snapshot;
   }
 
   async events(runId: string): Promise<RunEvent[]> {

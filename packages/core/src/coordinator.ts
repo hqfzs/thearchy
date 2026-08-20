@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { assessRisk } from "./risk.js";
 import { resolveBudget } from "./budget.js";
 import { inspectGitBaseline } from "./git.js";
+import { DEFAULT_MODEL_POLICY } from "./policy.js";
 import { ROLE_BY_ID } from "./roles.js";
 import { assertRunActive, assertTransition, nextAction } from "./state-machine.js";
 import { nextEvent, RunStore } from "./store.js";
@@ -10,13 +11,20 @@ import { sha256File } from "./security.js";
 import type {
   ApprovalGate,
   ArtifactRecord,
+  DecisionKind,
+  DecisionOption,
+  DecisionRequest,
+  ModelPolicy,
   NextAction,
+  OperationType,
+  PendingOperation,
   RejectionGate,
   RunBudget,
   RunMode,
   RunSnapshot,
   RunState,
-  TeamTemplate
+  TeamTemplate,
+  WorkspaceCandidate
 } from "./types.js";
 
 function runId(): string {
@@ -50,6 +58,22 @@ export interface SubmitArtifactInput {
   actor?: string;
 }
 
+export interface ClaimAgentInput {
+  runId: string;
+  roleId: string;
+  instanceId: string;
+  model: string;
+  reasoningEffort: string;
+  actor?: string;
+}
+
+export interface RequestOperationInput {
+  runId: string;
+  type: OperationType;
+  summary: string;
+  actor?: string;
+}
+
 export class Coordinator {
   constructor(readonly store: RunStore) {}
 
@@ -57,16 +81,23 @@ export class Coordinator {
     const id = runId();
     const risk = assessRisk(input.task, input.requestedMode);
     const baseline = inspectGitBaseline(input.cwd);
-    const profile = input.template.spec.profiles[risk.effectiveMode];
-    const budget = resolveBudget(
-      risk.effectiveMode,
-      profile,
-      input.budgetOverrides
-    );
+    const modeBudgets = {
+      light: resolveBudget(
+        "light",
+        input.template.spec.profiles.light,
+        input.budgetOverrides
+      ),
+      full: resolveBudget(
+        "full",
+        input.template.spec.profiles.full,
+        input.budgetOverrides
+      )
+    };
+    const budget = modeBudgets[risk.effectiveMode];
     const now = new Date().toISOString();
     const snapshot: RunSnapshot = {
       id,
-      schemaVersion: 1,
+      schemaVersion: 2,
       task: input.task,
       templateId: input.template.metadata.id,
       requestedMode: input.requestedMode,
@@ -75,14 +106,20 @@ export class Coordinator {
       state: "created",
       planReworks: 0,
       resultReworks: 0,
+      modelPolicy: DEFAULT_MODEL_POLICY,
+      templatePermissions: { ...input.template.spec.permissions },
       allowedGovernance: [...input.template.spec.governance],
       allowedSpecialists: [...input.template.spec.specialists],
       participants: [],
       activeAgents: [],
       agentInstances: [],
       artifacts: [],
-      approvals: {},
+      decisions: [],
+      candidates: [],
+      approvals:
+        input.requestedMode === "auto" ? {} : { mode: now },
       dirtyWorkingTree: baseline.dirty,
+      modeBudgets,
       budget,
       startedAt: now,
       updatedAt: now
@@ -112,7 +149,15 @@ export class Coordinator {
   }
 
   async next(id: string): Promise<NextAction> {
-    const snapshot = await this.store.load(id);
+    let snapshot = await this.store.load(id);
+    this.ensureCoordinationFields(snapshot);
+    if (
+      snapshot.activeAgents.some(
+        (lease) => Date.parse(lease.expiresAt) <= Date.now()
+      )
+    ) {
+      snapshot = await this.recoverStale(id);
+    }
     assertRunActive(snapshot);
     return nextAction(snapshot);
   }
@@ -121,6 +166,8 @@ export class Coordinator {
     id: string,
     roleId: string,
     instanceId: string,
+    model: string,
+    reasoningEffort: string,
     actor = "main"
   ): Promise<RunSnapshot> {
     if (!ROLE_BY_ID.has(roleId)) throw new Error(`Unknown role: ${roleId}`);
@@ -131,6 +178,14 @@ export class Coordinator {
       assertRunActive(snapshot);
       this.ensureCoordinationFields(snapshot);
       this.assertRoleAllowed(snapshot, roleId);
+      if (
+        model !== snapshot.modelPolicy.model ||
+        reasoningEffort !== snapshot.modelPolicy.reasoningEffort
+      ) {
+        throw new Error(
+          `Child agent must use ${snapshot.modelPolicy.model} with ${snapshot.modelPolicy.reasoningEffort} reasoning`
+        );
+      }
       if (snapshot.activeAgents.some((lease) => lease.instanceId === instanceId)) {
         throw new Error(`Agent instance is already active: ${instanceId}`);
       }
@@ -169,14 +224,43 @@ export class Coordinator {
       }
 
       const claimedAt = new Date().toISOString();
-      snapshot.activeAgents.push({ instanceId, roleId, claimedAt });
-      if (!existing) snapshot.agentInstances.push({ instanceId, roleId });
-      if (!snapshot.participants.includes(roleId)) snapshot.participants.push(roleId);
-      return nextEvent(events, id, "agent.claimed", actor, {
+      const expiresAt = new Date(
+        Date.now() + snapshot.budget.leaseTimeoutMinutes * 60_000
+      ).toISOString();
+      snapshot.activeAgents.push({
         instanceId,
         roleId,
+        model,
+        reasoningEffort,
+        claimedAt,
+        lastHeartbeatAt: claimedAt,
+        expiresAt
+      });
+      if (!existing) {
+        snapshot.agentInstances.push({
+          instanceId,
+          roleId,
+          model,
+          reasoningEffort
+        });
+      }
+      if (!snapshot.participants.includes(roleId)) snapshot.participants.push(roleId);
+      const claimed = nextEvent(events, id, "agent.claimed", actor, {
+        instanceId,
+        roleId,
+        model,
+        reasoningEffort,
+        expiresAt,
         activeAgents: snapshot.activeAgents.length
       });
+      const verified = nextEvent(
+        [...events, claimed],
+        id,
+        "model.verified",
+        "system",
+        { instanceId, roleId, model, reasoningEffort }
+      );
+      return [claimed, verified];
     });
   }
 
@@ -199,6 +283,229 @@ export class Coordinator {
         roleId: lease.roleId,
         activeAgents: snapshot.activeAgents.length
       });
+    });
+  }
+
+  async heartbeat(
+    id: string,
+    instanceId: string,
+    actor = "main"
+  ): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
+      const lease = snapshot.activeAgents.find(
+        (item) => item.instanceId === instanceId
+      );
+      if (!lease) throw new Error(`Agent instance is not active: ${instanceId}`);
+      const now = new Date();
+      lease.lastHeartbeatAt = now.toISOString();
+      lease.expiresAt = new Date(
+        now.getTime() + snapshot.budget.leaseTimeoutMinutes * 60_000
+      ).toISOString();
+      return nextEvent(events, id, "agent.heartbeat", actor, {
+        instanceId,
+        roleId: lease.roleId,
+        expiresAt: lease.expiresAt
+      });
+    });
+  }
+
+  async recoverStale(id: string, actor = "system"): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      this.ensureCoordinationFields(snapshot);
+      const now = Date.now();
+      const expired = snapshot.activeAgents.filter(
+        (lease) => Date.parse(lease.expiresAt) <= now
+      );
+      if (expired.length === 0) {
+        throw new Error("No stale agent leases were found");
+      }
+      snapshot.activeAgents = snapshot.activeAgents.filter(
+        (lease) => Date.parse(lease.expiresAt) > now
+      );
+      const emitted = expired.map((lease, index) =>
+        nextEvent(
+          [...events, ...expired.slice(0, index).map(() => ({} as never))],
+          id,
+          "agent.expired",
+          actor,
+          {
+            instanceId: lease.instanceId,
+            roleId: lease.roleId,
+            expiresAt: lease.expiresAt
+          }
+        )
+      );
+      const decision = this.createDecision(
+        snapshot,
+        "conflict",
+        "一个或多个子 Agent 租约已过期，如何继续？",
+        [
+          {
+            id: "retry",
+            label: "重试原任务",
+            description: "释放过期实例并重新派遣相同角色。",
+            recommended: true
+          },
+          {
+            id: "replace",
+            label: "更换 Agent",
+            description: "使用新实例重新执行受影响任务。",
+            recommended: false
+          },
+          {
+            id: "cancel",
+            label: "取消运行",
+            description: "保留现场并终止本次运行。",
+            recommended: false
+          }
+        ],
+        {
+          reason: "stale-agent-leases",
+          expiredInstances: expired.map((lease) => lease.instanceId),
+          returnState: snapshot.state
+        }
+      );
+      const previous = snapshot.state;
+      transition(snapshot, "awaiting_conflict_decision");
+      const requested = nextEvent(
+        [...events, ...emitted],
+        id,
+        "decision.requested",
+        "system",
+        { decision }
+      );
+      emitted.push(requested);
+      emitted.push(
+        nextEvent(
+          [...events, ...emitted],
+          id,
+          "run.transitioned",
+          "system",
+          { from: previous, to: snapshot.state }
+        )
+      );
+      return emitted;
+    });
+  }
+
+  async requestOperation(input: RequestOperationInput): Promise<RunSnapshot> {
+    if (!input.summary.trim()) throw new Error("Operation summary is required");
+    return this.store.update(input.runId, (snapshot, events) => {
+      assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
+      if (!["executing", "integrating", "verification"].includes(snapshot.state)) {
+        throw new Error(
+          `Risk operations cannot be requested while run is ${snapshot.state}`
+        );
+      }
+      if (this.pendingDecision(snapshot)) {
+        throw new Error("Resolve the pending decision before requesting an operation");
+      }
+      const permission = this.operationPermission(snapshot, input.type);
+      if (permission === "deny") {
+        throw new Error(`Operation ${input.type} is denied by the template`);
+      }
+      const operation: PendingOperation = {
+        id: `operation-${snapshot.decisions.length + 1}`,
+        type: input.type,
+        summary: input.summary,
+        requestedAt: new Date().toISOString(),
+        returnState: snapshot.state
+      };
+      snapshot.pendingOperation = operation;
+      const decision = this.createDecision(
+        snapshot,
+        "risk",
+        `是否允许执行高风险操作：${input.summary}`,
+        [
+          {
+            id: "approve-once",
+            label: "仅本次允许",
+            description: "允许当前操作一次，不扩大后续权限。",
+            recommended: false
+          },
+          {
+            id: "deny",
+            label: "拒绝操作",
+            description: "不执行当前操作并返回原阶段。",
+            recommended: true
+          },
+          {
+            id: "cancel",
+            label: "取消运行",
+            description: "保留现场并终止本次运行。",
+            recommended: false
+          }
+        ],
+        { operation, returnState: snapshot.state }
+      );
+      const previous = snapshot.state;
+      transition(snapshot, "awaiting_risk_approval");
+      const operationEvent = nextEvent(
+        events,
+        snapshot.id,
+        "operation.requested",
+        input.actor ?? "main",
+        { operation }
+      );
+      const decisionEvent = nextEvent(
+        [...events, operationEvent],
+        snapshot.id,
+        "decision.requested",
+        "system",
+        { decision }
+      );
+      return [
+        operationEvent,
+        decisionEvent,
+        nextEvent(
+          [...events, operationEvent, decisionEvent],
+          snapshot.id,
+          "run.transitioned",
+          "system",
+          { from: previous, to: snapshot.state }
+        )
+      ];
+    });
+  }
+
+  async decide(
+    id: string,
+    requestId: string,
+    choiceId: string,
+    actor = "user"
+  ): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      this.ensureCoordinationFields(snapshot);
+      const decision = snapshot.decisions.find(
+        (item) => item.id === requestId && item.status === "pending"
+      );
+      if (!decision) throw new Error(`Pending decision not found: ${requestId}`);
+      if (!decision.options.some((option) => option.id === choiceId)) {
+        throw new Error(`Invalid choice ${choiceId} for decision ${requestId}`);
+      }
+      decision.status = "resolved";
+      decision.selectedOption = choiceId;
+      decision.resolvedAt = new Date().toISOString();
+      const previous = snapshot.state;
+      this.applyDecision(snapshot, decision, choiceId);
+      const resolved = nextEvent(events, id, "decision.resolved", actor, {
+        requestId,
+        kind: decision.kind,
+        choiceId
+      });
+      return [
+        resolved,
+        nextEvent(
+          [...events, resolved],
+          id,
+          "run.transitioned",
+          "system",
+          { from: previous, to: snapshot.state }
+        )
+      ];
     });
   }
 
@@ -254,6 +561,15 @@ export class Coordinator {
           { artifact, instanceId: input.instanceId }
         )
       ];
+      const emit = (
+        type: Parameters<typeof nextEvent>[2],
+        actor: string,
+        data: Record<string, unknown>
+      ): void => {
+        emitted.push(
+          nextEvent([...events, ...emitted], snapshot.id, type, actor, data)
+        );
+      };
       emitted.push(
         nextEvent(
           [...events, ...emitted],
@@ -271,41 +587,150 @@ export class Coordinator {
       const advance = this.stateAfterSubmission(snapshot, input.roleId, input.final ?? false);
       if (advance) {
         transition(snapshot, advance);
-        emitted.push(
-          nextEvent(
-            [...events, ...emitted],
-            snapshot.id,
-            "run.transitioned",
-            "system",
-            { from: previous, to: snapshot.state }
-          )
-        );
+        emit("run.transitioned", "system", {
+          from: previous,
+          to: snapshot.state
+        });
+        if (previous === "created" && snapshot.requestedMode === "auto") {
+          const classifiedState = snapshot.state;
+          const decision = this.createDecision(
+            snapshot,
+            "mode",
+            "请选择本次运行模式",
+            [
+              {
+                id: snapshot.risk.effectiveMode,
+                label:
+                  snapshot.risk.effectiveMode === "full"
+                    ? "完整模式"
+                    : "轻量模式",
+                description: `根据风险评分 ${snapshot.risk.score} 推荐。`,
+                recommended: true
+              },
+              {
+                id: snapshot.risk.effectiveMode === "full" ? "light" : "full",
+                label:
+                  snapshot.risk.effectiveMode === "full"
+                    ? "轻量模式"
+                    : "完整模式",
+                description:
+                  snapshot.risk.effectiveMode === "full"
+                    ? "减少 Agent 和质量门，执行更快。"
+                    : "启用多方案、专项审查和隔离实现。",
+                recommended: false
+              }
+            ],
+            {
+              risk: snapshot.risk,
+              recommendedMode: snapshot.risk.effectiveMode
+            }
+          );
+          transition(snapshot, "awaiting_mode_approval");
+          emit("decision.requested", "system", { decision });
+          emit("run.transitioned", "system", {
+            from: classifiedState,
+            to: snapshot.state
+          });
+        } else if (previous === "plan_review") {
+          const decision = this.createDecision(
+            snapshot,
+            "plan",
+            "方案已通过独立审议，是否进入代码实施？",
+            [
+              {
+                id: "approve",
+                label: "批准实施",
+                description: "按当前方案派工并进入执行阶段。",
+                recommended: true
+              },
+              {
+                id: "adjust",
+                label: "调整方案",
+                description: "保留主要方向并补充修改意见。",
+                recommended: false
+              },
+              {
+                id: "replan",
+                label: "重新规划",
+                description: "放弃当前方案并生成新方案。",
+                recommended: false
+              }
+            ],
+            { planArtifactId: artifact.id }
+          );
+          emit("decision.requested", "system", { decision });
+        } else if (previous === "result_review") {
+          const options: DecisionOption[] = snapshot.candidates
+            .filter((candidate) =>
+              ["verified", "selected"].includes(candidate.status)
+            )
+            .map((candidate, index) => ({
+              id: `candidate:${candidate.id}`,
+              label: `合并候选 ${candidate.id}`,
+              description: `分支 ${candidate.branch}，验证产物 ${candidate.verificationArtifacts.length} 项。`,
+              recommended: index === 0
+            }));
+          if (options.length === 0) {
+            options.push({
+              id: "integrate",
+              label: "合并当前实现",
+              description: "使用当前工作区中的已审查实现继续交付。",
+              recommended: true
+            });
+          }
+          options.push(
+            {
+              id: "keep-branches",
+              label: "仅保留候选分支",
+              description: "不合并到当前分支，保留现场供人工处理。",
+              recommended: false
+            },
+            {
+              id: "reject",
+              label: "拒绝交付",
+              description: "返回执行阶段继续修改。",
+              recommended: false
+            }
+          );
+          const decision = this.createDecision(
+            snapshot,
+            "merge",
+            "请选择最终交付方式",
+            options,
+            {
+              candidates: snapshot.candidates,
+              resultArtifactId: artifact.id
+            }
+          );
+          emit("decision.requested", "system", { decision });
+        }
       }
       return emitted;
     });
   }
 
   async approve(id: string, gate: ApprovalGate, actor = "user"): Promise<RunSnapshot> {
-    return this.store.update(id, (snapshot, events) => {
-      assertRunActive(snapshot);
-      const expected =
-        gate === "plan" ? "awaiting_plan_approval" : "awaiting_merge_approval";
-      if (snapshot.state !== expected) {
-        throw new Error(`Cannot approve ${gate} while run is ${snapshot.state}`);
-      }
-      const target = gate === "plan" ? "dispatching" : "integrating";
-      const previous = snapshot.state;
-      snapshot.approvals[gate] = new Date().toISOString();
-      transition(snapshot, target);
-      const approved = nextEvent(events, id, "gate.approved", actor, { gate });
-      return [
-        approved,
-        nextEvent([...events, approved], id, "run.transitioned", "system", {
-          from: previous,
-          to: target
-        })
-      ];
-    });
+    if (gate !== "plan" && gate !== "merge") {
+      throw new Error(`Legacy approve only supports plan or merge, not ${gate}`);
+    }
+    const snapshot = await this.store.load(id);
+    this.ensureCoordinationFields(snapshot);
+    const decision = snapshot.decisions.find(
+      (item) => item.kind === gate && item.status === "pending"
+    );
+    if (!decision) throw new Error(`No pending ${gate} decision`);
+    const choice =
+      gate === "plan"
+        ? "approve"
+        : decision.options.find((option) => option.id.startsWith("candidate:"))
+            ?.id ??
+          (decision.options.some((option) => option.id === "integrate")
+            ? "integrate"
+            : "keep-branches");
+    await this.decide(id, decision.id, choice, actor);
+    return this.store.update(id, (_updated, events) =>
+      nextEvent(events, id, "gate.approved", actor, { gate, choice })
+    );
   }
 
   async reject(
@@ -317,6 +742,7 @@ export class Coordinator {
     if (!reason.trim()) throw new Error("Rejection reason is required");
     return this.store.update(id, (snapshot, events) => {
       assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
       const allowed =
         gate === "plan"
           ? ["plan_review", "awaiting_plan_approval"]
@@ -324,10 +750,37 @@ export class Coordinator {
       if (!allowed.includes(snapshot.state)) {
         throw new Error(`Cannot reject ${gate} while run is ${snapshot.state}`);
       }
+      const pending = this.pendingDecision(snapshot);
+      if (pending) {
+        pending.status = "resolved";
+        pending.selectedOption = "legacy-reject";
+        pending.resolvedAt = new Date().toISOString();
+      }
+      let conflictDecision: DecisionRequest | undefined;
       if (gate === "plan") {
         snapshot.planReworks += 1;
         if (snapshot.planReworks > snapshot.budget.maxPlanReworks) {
-          transition(snapshot, "blocked");
+          conflictDecision = this.createDecision(
+            snapshot,
+            "conflict",
+            "方案返工次数已超限，如何继续？",
+            [
+              {
+                id: "retry",
+                label: "再尝试一次",
+                description: "返回规划阶段并允许额外一次人工监督的重试。",
+                recommended: true
+              },
+              {
+                id: "cancel",
+                label: "取消运行",
+                description: "保留当前产物并终止运行。",
+                recommended: false
+              }
+            ],
+            { reason: "plan-rework-limit", returnState: "planning" }
+          );
+          transition(snapshot, "awaiting_conflict_decision");
         } else {
           snapshot.reworkTarget = "planning";
           transition(snapshot, "rework");
@@ -335,17 +788,54 @@ export class Coordinator {
       } else {
         snapshot.resultReworks += 1;
         if (snapshot.resultReworks > snapshot.budget.maxResultReworks) {
-          transition(snapshot, "blocked");
+          conflictDecision = this.createDecision(
+            snapshot,
+            "conflict",
+            "成果修复次数已超限，如何继续？",
+            [
+              {
+                id: "retry",
+                label: "继续修复",
+                description: "返回执行阶段并重新派遣专家。",
+                recommended: true
+              },
+              {
+                id: "keep-worktrees",
+                label: "保留候选",
+                description: "停止自动流程并保留工作区供人工处理。",
+                recommended: false
+              },
+              {
+                id: "cancel",
+                label: "取消运行",
+                description: "保留现场并终止运行。",
+                recommended: false
+              }
+            ],
+            { reason: "result-rework-limit", returnState: "executing" }
+          );
+          transition(snapshot, "awaiting_conflict_decision");
         } else {
           snapshot.reworkTarget = "executing";
           transition(snapshot, "rework");
         }
       }
-      return nextEvent(events, id, "gate.rejected", actor, {
+      const rejected = nextEvent(events, id, "gate.rejected", actor, {
         gate,
         reason,
         state: snapshot.state
       });
+      if (!conflictDecision) return rejected;
+      return [
+        rejected,
+        nextEvent(
+          [...events, rejected],
+          id,
+          "decision.requested",
+          "system",
+          { decision: conflictDecision }
+        )
+      ];
     });
   }
 
@@ -385,6 +875,326 @@ export class Coordinator {
     });
   }
 
+  async registerCandidate(
+    id: string,
+    candidate: Omit<WorkspaceCandidate, "status" | "verificationArtifacts">,
+    actor = "main"
+  ): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
+      if (snapshot.mode !== "full") {
+        throw new Error("Workspace candidates require full mode");
+      }
+      if (snapshot.state !== "executing") {
+        throw new Error(
+          `Workspace candidates can only be created while executing, not ${snapshot.state}`
+        );
+      }
+      if (candidate.baselineCommit !== snapshot.baselineCommit) {
+        throw new Error("Candidate baseline does not match the run baseline");
+      }
+      if (snapshot.candidates.some((item) => item.id === candidate.id)) {
+        throw new Error(`Candidate already exists: ${candidate.id}`);
+      }
+      if (
+        snapshot.candidates.length >= snapshot.budget.maxCompetingImplementations
+      ) {
+        throw new Error(
+          `Candidate budget exceeded (${snapshot.budget.maxCompetingImplementations})`
+        );
+      }
+      const record: WorkspaceCandidate = {
+        ...candidate,
+        status: "active",
+        verificationArtifacts: []
+      };
+      snapshot.candidates.push(record);
+      return nextEvent(events, id, "candidate.created", actor, {
+        candidate: record
+      });
+    });
+  }
+
+  async verifyCandidate(
+    id: string,
+    candidateId: string,
+    artifactPath: string,
+    actor = "expert.tester"
+  ): Promise<RunSnapshot> {
+    const resolvedArtifact = resolve(artifactPath);
+    await sha256File(resolvedArtifact);
+    return this.store.update(id, (snapshot, events) => {
+      this.ensureCoordinationFields(snapshot);
+      if (!["executing", "verification", "result_review"].includes(snapshot.state)) {
+        throw new Error(
+          `Candidates cannot be verified while run is ${snapshot.state}`
+        );
+      }
+      const candidate = snapshot.candidates.find(
+        (item) => item.id === candidateId
+      );
+      if (!candidate) throw new Error(`Candidate not found: ${candidateId}`);
+      if (!candidate.verificationArtifacts.includes(resolvedArtifact)) {
+        candidate.verificationArtifacts.push(resolvedArtifact);
+      }
+      candidate.status = "verified";
+      return nextEvent(events, id, "candidate.verified", actor, {
+        candidateId,
+        artifactPath: resolvedArtifact
+      });
+    });
+  }
+
+  async markCandidateConflict(
+    id: string,
+    candidateId: string,
+    message: string,
+    actor = "system"
+  ): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      this.ensureCoordinationFields(snapshot);
+      if (snapshot.state !== "integrating") {
+        throw new Error(`Candidate integration requires integrating state`);
+      }
+      const candidate = snapshot.candidates.find(
+        (item) => item.id === candidateId
+      );
+      if (!candidate) throw new Error(`Candidate not found: ${candidateId}`);
+      candidate.status = "conflicted";
+      const decision = this.createDecision(
+        snapshot,
+        "conflict",
+        `候选 ${candidateId} 合并冲突，如何处理？`,
+        [
+          {
+            id: "retry",
+            label: "人工处理后重试",
+            description: "保留冲突现场，处理完成后重新尝试集成。",
+            recommended: true
+          },
+          {
+            id: "keep-worktrees",
+            label: "保留候选分支",
+            description: "停止自动集成并保留全部候选。",
+            recommended: false
+          },
+          {
+            id: "cancel",
+            label: "取消运行",
+            description: "保留现场并终止运行。",
+            recommended: false
+          }
+        ],
+        {
+          reason: "merge-conflict",
+          candidateId,
+          message,
+          returnState: "integrating"
+        }
+      );
+      const previous = snapshot.state;
+      transition(snapshot, "awaiting_conflict_decision");
+      const conflict = nextEvent(events, id, "candidate.conflicted", actor, {
+        candidateId,
+        message
+      });
+      const requested = nextEvent(
+        [...events, conflict],
+        id,
+        "decision.requested",
+        "system",
+        { decision }
+      );
+      return [
+        conflict,
+        requested,
+        nextEvent(
+          [...events, conflict, requested],
+          id,
+          "run.transitioned",
+          "system",
+          { from: previous, to: snapshot.state }
+        )
+      ];
+    });
+  }
+
+  async markCandidateIntegrated(
+    id: string,
+    candidateId: string,
+    commit: string,
+    actor = "governance.publisher"
+  ): Promise<RunSnapshot> {
+    return this.store.update(id, (snapshot, events) => {
+      this.ensureCoordinationFields(snapshot);
+      const candidate = snapshot.candidates.find(
+        (item) => item.id === candidateId
+      );
+      if (!candidate) throw new Error(`Candidate not found: ${candidateId}`);
+      this.selectCandidateRecord(snapshot, candidateId);
+      return nextEvent(events, id, "candidate.integrated", actor, {
+        candidateId,
+        commit
+      });
+    });
+  }
+
+  private createDecision(
+    snapshot: RunSnapshot,
+    kind: DecisionKind,
+    question: string,
+    options: DecisionOption[],
+    context: Record<string, unknown> = {}
+  ): DecisionRequest {
+    if (this.pendingDecision(snapshot)) {
+      throw new Error("A decision is already pending");
+    }
+    const decision: DecisionRequest = {
+      id: `decision-${snapshot.decisions.length + 1}`,
+      kind,
+      question,
+      options,
+      context,
+      status: "pending",
+      createdAt: new Date().toISOString()
+    };
+    snapshot.decisions.push(decision);
+    return decision;
+  }
+
+  private selectCandidateRecord(
+    snapshot: RunSnapshot,
+    candidateId: string
+  ): void {
+    const selected = snapshot.candidates.find(
+      (candidate) => candidate.id === candidateId
+    );
+    if (!selected) throw new Error(`Candidate not found: ${candidateId}`);
+    if (!["verified", "selected"].includes(selected.status)) {
+      throw new Error(`Candidate ${candidateId} is not verified`);
+    }
+    snapshot.selectedCandidateId = candidateId;
+    for (const candidate of snapshot.candidates) {
+      candidate.status =
+        candidate.id === candidateId ? "selected" : "rejected";
+    }
+  }
+
+  private pendingDecision(snapshot: RunSnapshot): DecisionRequest | undefined {
+    return snapshot.decisions.find((decision) => decision.status === "pending");
+  }
+
+  private operationPermission(
+    snapshot: RunSnapshot,
+    type: OperationType
+  ): "deny" | "approval" {
+    const permissions = snapshot.templatePermissions;
+    switch (type) {
+      case "network":
+        return permissions.network;
+      case "dependency-install":
+        return permissions.dependencyInstall;
+      case "destructive":
+      case "migration":
+        return permissions.destructive;
+      case "publish":
+      case "external-write":
+        return permissions.externalWrite;
+      case "sensitive-read":
+        return permissions.sensitiveRead;
+    }
+  }
+
+  private applyDecision(
+    snapshot: RunSnapshot,
+    decision: DecisionRequest,
+    choiceId: string
+  ): void {
+    switch (decision.kind) {
+      case "mode":
+        if (choiceId !== "light" && choiceId !== "full") {
+          throw new Error(`Unsupported mode choice: ${choiceId}`);
+        }
+        snapshot.mode = choiceId;
+        snapshot.budget = snapshot.modeBudgets[choiceId];
+        snapshot.approvals.mode = new Date().toISOString();
+        transition(snapshot, "classified");
+        return;
+      case "plan":
+        if (choiceId === "approve") {
+          snapshot.approvals.plan = new Date().toISOString();
+          transition(snapshot, "dispatching");
+          return;
+        }
+        snapshot.reworkTarget = "planning";
+        snapshot.planReworks += 1;
+        transition(snapshot, "rework");
+        return;
+      case "risk": {
+        const returnState = snapshot.pendingOperation?.returnState ?? "executing";
+        if (choiceId === "cancel") {
+          transition(snapshot, "cancelled");
+        } else {
+          if (choiceId === "approve-once") {
+            snapshot.approvals.risk = new Date().toISOString();
+          }
+          transition(snapshot, returnState);
+        }
+        delete snapshot.pendingOperation;
+        return;
+      }
+      case "conflict": {
+        if (choiceId === "cancel") {
+          transition(snapshot, "cancelled");
+          return;
+        }
+        if (choiceId === "keep-worktrees") {
+          transition(snapshot, "completed");
+          return;
+        }
+        const returnState = decision.context.returnState;
+        const recoverableStates: RunState[] = [
+          "created",
+          "classified",
+          "planning",
+          "plan_review",
+          "dispatching",
+          "executing",
+          "verification",
+          "result_review",
+          "integrating"
+        ];
+        transition(
+          snapshot,
+          recoverableStates.includes(returnState as RunState)
+            ? (returnState as RunState)
+            : "executing"
+        );
+        return;
+      }
+      case "merge":
+        if (choiceId === "keep-branches") {
+          snapshot.approvals.merge = new Date().toISOString();
+          transition(snapshot, "completed");
+          return;
+        }
+        if (choiceId === "reject") {
+          snapshot.reworkTarget = "executing";
+          snapshot.resultReworks += 1;
+          transition(snapshot, "rework");
+          return;
+        }
+        if (choiceId.startsWith("candidate:")) {
+          const candidateId = choiceId.slice("candidate:".length);
+          this.selectCandidateRecord(snapshot, candidateId);
+        }
+        snapshot.approvals.merge = new Date().toISOString();
+        transition(snapshot, "integrating");
+        return;
+    }
+  }
+
   private assertRoleAllowed(snapshot: RunSnapshot, roleId: string): void {
     this.ensureCoordinationFields(snapshot);
     const expected: Partial<Record<RunState, string[]>> = {
@@ -413,6 +1223,14 @@ export class Coordinator {
   }
 
   private ensureCoordinationFields(snapshot: RunSnapshot): void {
+    snapshot.modelPolicy ??= DEFAULT_MODEL_POLICY;
+    snapshot.templatePermissions ??= {
+      network: "approval",
+      dependencyInstall: "approval",
+      destructive: "approval",
+      externalWrite: "approval",
+      sensitiveRead: "deny"
+    };
     snapshot.allowedGovernance ??= [
       "governance.router",
       "governance.planner",
@@ -433,6 +1251,10 @@ export class Coordinator {
     ];
     snapshot.activeAgents ??= [];
     snapshot.agentInstances ??= [];
+    snapshot.decisions ??= [];
+    snapshot.candidates ??= [];
+    snapshot.budget.leaseTimeoutMinutes ??=
+      snapshot.mode === "full" ? 10 : 5;
   }
 
   private stateAfterSubmission(

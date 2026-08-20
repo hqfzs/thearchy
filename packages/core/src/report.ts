@@ -26,10 +26,32 @@ export function renderRunReport(
     `- 工作区含未提交修改：${snapshot.dirtyWorkingTree ? "是" : "否"}`,
     `- 开始：${snapshot.startedAt}`,
     `- 更新：${snapshot.updatedAt}`,
+    `- 子 Agent 模型：${snapshot.modelPolicy.model} / ${snapshot.modelPolicy.reasoningEffort}`,
+    `- Agent 预算：${snapshot.agentInstances.length}/${snapshot.budget.maxAgents}`,
+    `- 当前并发：${snapshot.activeAgents.length}/${snapshot.budget.maxConcurrency}`,
     "",
-    "## 参与角色",
+    "## Agent 实例",
     "",
-    ...snapshot.participants.map((role) => `- ${role}`),
+    ...snapshot.agentInstances.map(
+      (instance) =>
+        `- ${instance.instanceId}: ${instance.roleId} — ${instance.model} / ${instance.reasoningEffort}`
+    ),
+    "",
+    "## 用户决策",
+    "",
+    ...snapshot.decisions.map(
+      (decision) =>
+        `- ${decision.id} [${decision.kind}] ${decision.status}${
+          decision.selectedOption ? ` → ${decision.selectedOption}` : ""
+        }`
+    ),
+    "",
+    "## 候选工作区",
+    "",
+    ...snapshot.candidates.map(
+      (candidate) =>
+        `- ${candidate.id}: ${candidate.status} — ${candidate.branch} — 验证 ${candidate.verificationArtifacts.length} 项`
+    ),
     "",
     "## 产物",
     "",

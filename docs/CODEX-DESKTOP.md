@@ -50,6 +50,8 @@ thearchy desktop status
 - `marketplaceRegistered`
 - `runtimeInstalled`
 
+运行中的关键决策会优先调用 MCP 可选项询问组件；如果不可用则使用 Codex 原生可选项输入，最后才退回结构化文本询问。
+
 ## 使用
 
 Codex 打开后新建任务，输入：
