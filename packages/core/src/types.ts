@@ -171,6 +171,11 @@ export interface AdapterCompileResult {
   nextSteps: string[];
 }
 
+export interface AdapterCompileOptions {
+  runtimeCommand?: string;
+  desktopInstall?: boolean;
+}
+
 export interface HostAdapter {
   readonly id: "codex" | "claude";
   readonly displayName: string;
@@ -178,7 +183,8 @@ export interface HostAdapter {
   compile(
     outputDirectory: string,
     templates: TeamTemplate[],
-    roles: RoleDefinition[]
+    roles: RoleDefinition[],
+    options?: AdapterCompileOptions
   ): Promise<AdapterCompileResult>;
 }
 

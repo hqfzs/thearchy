@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   AdapterCompileResult,
+  AdapterCompileOptions,
   HostAdapter,
   HostCapabilities,
   RoleDefinition,
@@ -19,7 +20,8 @@ function codexAvailable(): boolean {
 
 function renderSkill(
   templates: TeamTemplate[],
-  roles: RoleDefinition[]
+  roles: RoleDefinition[],
+  runtimeCommand?: string
 ): string {
   const templateList = templates
     .map((template) => `- \`${template.metadata.id}\`: ${template.metadata.displayName}`)
@@ -31,6 +33,8 @@ function renderSkill(
     )
     .join("\n");
 
+  const coordinatorCommand = runtimeCommand ?? "thearchy";
+
   return `---
 name: thearchy
 description: Govern software development with deterministic multi-agent planning, independent review, structured execution, verification, and merge approval. Use when the user requests Thearchy/神治, governed multi-agent work, feature delivery, bug fixing, code review, security review, or refactoring.
@@ -38,14 +42,20 @@ description: Govern software development with deterministic multi-agent planning
 
 # 神治 / Thearchy
 
-Use the \`thearchy\` CLI as the source of truth. Never invent or skip run states.
+Use the bundled coordinator as the source of truth. Never invent or skip run states.
+
+Coordinator command:
+
+\`\`\`text
+${coordinatorCommand}
+\`\`\`
 
 ## Workflow
 
-1. Run \`thearchy run start\` with the requested template and mode.
-2. Call \`thearchy run next <run-id> --json\`.
+1. Run \`${coordinatorCommand} run start\` with the requested template and mode.
+2. Call \`${coordinatorCommand} run next <run-id> --json\`.
 3. Delegate only the role returned by the coordinator.
-4. Save each role output as an artifact and submit it with \`thearchy run submit\`.
+4. Save each role output as an artifact and submit it with \`${coordinatorCommand} run submit\`.
 5. Stop for plan and merge approval when requested.
 6. Run detected verification commands before result review.
 7. Export the final report.
@@ -82,7 +92,8 @@ export class CodexAdapter implements HostAdapter {
   async compile(
     outputDirectory: string,
     templates: TeamTemplate[],
-    roles: RoleDefinition[]
+    roles: RoleDefinition[],
+    options: AdapterCompileOptions = {}
   ): Promise<AdapterCompileResult> {
     const manifestDirectory = join(outputDirectory, ".codex-plugin");
     const skillDirectory = join(outputDirectory, "skills", "thearchy");
@@ -121,7 +132,7 @@ export class CodexAdapter implements HostAdapter {
     files.push(manifestPath);
 
     const skillPath = join(skillDirectory, "SKILL.md");
-    await writeFile(skillPath, renderSkill(templates, roles));
+    await writeFile(skillPath, renderSkill(templates, roles, options.runtimeCommand));
     files.push(skillPath);
 
     for (const role of roles) {
@@ -140,8 +151,10 @@ export class CodexAdapter implements HostAdapter {
       files,
       capabilities,
       nextSteps: [
-        "Add the generated plugin directory to a Codex marketplace or personal plugin installation.",
-        "Run `thearchy doctor` to confirm host capabilities."
+        options.desktopInstall
+          ? "The bundled coordinator is available inside the plugin; no global CLI installation is required."
+          : "Add the generated plugin directory to a Codex marketplace or personal plugin installation.",
+        "Open a new Codex task and ask it to use 神治 / Thearchy."
       ]
     };
   }

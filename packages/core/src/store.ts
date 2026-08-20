@@ -1,5 +1,6 @@
 import {
   appendFile,
+  copyFile,
   mkdir,
   open,
   readFile,
@@ -13,6 +14,24 @@ import type { RunEvent, RunSnapshot } from "./types.js";
 
 interface LockHandle {
   release(): Promise<void>;
+}
+
+async function replaceFile(temporary: string, destination: string): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await rename(temporary, destination);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (!["EPERM", "EACCES", "EBUSY"].includes(code ?? "")) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+
+  // Windows antivirus and indexers can briefly prevent atomic replacement.
+  // The run lock still guarantees a single writer, so copying is a safe fallback.
+  await copyFile(temporary, destination);
+  await rm(temporary, { force: true });
 }
 
 async function acquireLock(
@@ -110,7 +129,7 @@ export class RunStore {
       snapshot.updatedAt = new Date().toISOString();
       const temporary = `${this.snapshotPath(runId)}.tmp-${process.pid}`;
       await writeFile(temporary, JSON.stringify(snapshot, null, 2));
-      await rename(temporary, this.snapshotPath(runId));
+      await replaceFile(temporary, this.snapshotPath(runId));
       return snapshot;
     } finally {
       await lock.release();

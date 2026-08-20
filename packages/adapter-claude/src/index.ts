@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   AdapterCompileResult,
+  AdapterCompileOptions,
   HostAdapter,
   HostCapabilities,
   RoleDefinition,
@@ -79,7 +80,8 @@ export class ClaudeAdapter implements HostAdapter {
   async compile(
     outputDirectory: string,
     templates: TeamTemplate[],
-    roles: RoleDefinition[]
+    roles: RoleDefinition[],
+    _options: AdapterCompileOptions = {}
   ): Promise<AdapterCompileResult> {
     const manifestDirectory = join(outputDirectory, ".claude-plugin");
     const agentsDirectory = join(outputDirectory, "agents");

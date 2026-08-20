@@ -29,6 +29,40 @@ thearchy doctor
 
 ## 安装宿主插件
 
+### Codex 桌面端一键安装
+
+Windows 用户直接双击项目根目录中的：
+
+```text
+install-codex-desktop.cmd
+```
+
+安装器会自动：
+
+1. 检查 Node.js；
+2. 构建自包含协调器；
+3. 将插件安装到 Codex 个人插件目录；
+4. 注册为 `INSTALLED_BY_DEFAULT`；
+5. 打开 Codex 的神治插件页面。
+
+协调器已经嵌入插件，不再需要执行 `npm link` 或全局安装 CLI。
+
+命令行方式：
+
+```bash
+thearchy desktop install
+thearchy desktop status
+thearchy desktop uninstall
+```
+
+卸载也可以双击：
+
+```text
+uninstall-codex-desktop.cmd
+```
+
+### 通用安装
+
 ```bash
 thearchy install --target codex
 thearchy install --target claude
@@ -121,6 +155,7 @@ thearchy run resume <run-id>
 ## 文档
 
 - [架构](docs/ARCHITECTURE.md)
+- [Codex 桌面端安装](docs/CODEX-DESKTOP.md)
 - [模板规范](docs/TEMPLATE-SPEC.md)
 - [威胁模型](docs/THREAT-MODEL.md)
 - [质量评测](evals/README.md)

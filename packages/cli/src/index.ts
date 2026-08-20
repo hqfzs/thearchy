@@ -25,7 +25,12 @@ import {
   parseArgs,
   type ParsedArgs
 } from "./args.js";
-import { installHosts, uninstallHosts } from "./install.js";
+import {
+  codexDesktopStatus,
+  installHosts,
+  uninstallHosts
+} from "./install.js";
+import { launchExternalUrl } from "./desktop.js";
 import { stateDirectory } from "./paths.js";
 import {
   addTemplate,
@@ -49,6 +54,9 @@ function usage(): string {
 
 Usage:
   thearchy install --target codex|claude|all [--output path]
+  thearchy desktop install [--no-launch]
+  thearchy desktop status
+  thearchy desktop uninstall
   thearchy doctor
   thearchy run start --template <id> --task <text> [--mode auto|light|full]
   thearchy run next <run-id> [--json]
@@ -342,6 +350,27 @@ async function main(): Promise<void> {
     case "doctor":
       await doctor();
       return;
+    case "desktop": {
+      if (command === "install") {
+        const result = await installHosts(["codex"]);
+        const status = await codexDesktopStatus();
+        if (!optionBoolean(parsed, "no-launch")) {
+          launchExternalUrl(status.deepLink);
+        }
+        output({ result, status }, true);
+        return;
+      }
+      if (command === "status") {
+        output(await codexDesktopStatus(), true);
+        return;
+      }
+      if (command === "uninstall") {
+        await uninstallHosts(["codex"]);
+        output(await codexDesktopStatus(), true);
+        return;
+      }
+      throw new Error("desktop command must be install, status, or uninstall");
+    }
     case "run":
       await handleRun(command, parsed);
       return;

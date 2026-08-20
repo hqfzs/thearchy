@@ -1,5 +1,4 @@
 import { access, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   ALL_ROLES,
@@ -9,7 +8,12 @@ import {
 import { CodexAdapter } from "@thearchy/adapter-codex";
 import { ClaudeAdapter } from "@thearchy/adapter-claude";
 import { allTemplates } from "./templates.js";
-import { hostOutputDirectory } from "./paths.js";
+import {
+  assetsDirectory,
+  codexMarketplacePath,
+  embeddedRuntimePath,
+  hostOutputDirectory
+} from "./paths.js";
 
 function adapter(host: "codex" | "claude"): HostAdapter {
   return host === "codex" ? new CodexAdapter() : new ClaudeAdapter();
@@ -26,8 +30,8 @@ async function backup(path: string): Promise<string | undefined> {
   return destination;
 }
 
-async function updateCodexMarketplace(pluginPath: string): Promise<string> {
-  const marketplacePath = join(homedir(), ".agents", "plugins", "marketplace.json");
+async function updateCodexMarketplace(): Promise<string> {
+  const marketplacePath = codexMarketplacePath();
   await mkdir(dirname(marketplacePath), { recursive: true });
   let marketplace: {
     name: string;
@@ -46,15 +50,104 @@ async function updateCodexMarketplace(pluginPath: string): Promise<string> {
   const entry = {
     name: "thearchy",
     source: { source: "local", path: "./plugins/thearchy" },
-    policy: { installation: "AVAILABLE", authentication: "ON_INSTALL" },
+    policy: {
+      installation: "INSTALLED_BY_DEFAULT",
+      authentication: "ON_INSTALL"
+    },
     category: "Developer Tools"
   };
   marketplace.plugins = marketplace.plugins.filter(
     (item) => item.name !== "thearchy"
   );
   marketplace.plugins.push(entry);
-  await writeFile(marketplacePath, JSON.stringify(marketplace, null, 2));
+  await backup(marketplacePath);
+  const temporary = `${marketplacePath}.tmp-${process.pid}`;
+  await writeFile(temporary, JSON.stringify(marketplace, null, 2));
+  await rename(temporary, marketplacePath);
   return marketplacePath;
+}
+
+async function installEmbeddedCoordinator(output: string): Promise<{
+  runtimePath: string;
+  command: string;
+  files: string[];
+}> {
+  const scriptsDirectory = join(output, "skills", "thearchy", "scripts");
+  const runtimePath = join(scriptsDirectory, "thearchy.js");
+  const runtimeAssets = join(scriptsDirectory, "assets");
+  await mkdir(scriptsDirectory, { recursive: true });
+  await cp(embeddedRuntimePath(), runtimePath, { force: true });
+  await cp(assetsDirectory(), runtimeAssets, { recursive: true, force: true });
+
+  const command = `node "${runtimePath}"`;
+  const windowsLauncher = join(scriptsDirectory, "thearchy.cmd");
+  await writeFile(
+    windowsLauncher,
+    `@echo off\r\nnode "%~dp0thearchy.js" %*\r\n`
+  );
+  return {
+    runtimePath,
+    command,
+    files: [runtimePath, windowsLauncher]
+  };
+}
+
+export function codexPluginDeepLink(): string {
+  return `codex://plugins/thearchy?marketplacePath=${encodeURIComponent(
+    codexMarketplacePath()
+  )}`;
+}
+
+export interface DesktopInstallStatus {
+  pluginPath: string;
+  marketplacePath: string;
+  runtimePath: string;
+  pluginInstalled: boolean;
+  marketplaceRegistered: boolean;
+  runtimeInstalled: boolean;
+  deepLink: string;
+}
+
+export async function codexDesktopStatus(): Promise<DesktopInstallStatus> {
+  const pluginPath = hostOutputDirectory("codex");
+  const marketplacePath = codexMarketplacePath();
+  const runtimePath = join(
+    pluginPath,
+    "skills",
+    "thearchy",
+    "scripts",
+    "thearchy.js"
+  );
+  const exists = async (path: string): Promise<boolean> => {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  let marketplaceRegistered = false;
+  try {
+    const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as {
+      plugins?: Array<{ name?: string; policy?: { installation?: string } }>;
+    };
+    marketplaceRegistered = (marketplace.plugins ?? []).some(
+      (entry) =>
+        entry.name === "thearchy" &&
+        entry.policy?.installation === "INSTALLED_BY_DEFAULT"
+    );
+  } catch {
+    marketplaceRegistered = false;
+  }
+  return {
+    pluginPath,
+    marketplacePath,
+    runtimePath,
+    pluginInstalled: await exists(join(pluginPath, ".codex-plugin", "plugin.json")),
+    marketplaceRegistered,
+    runtimeInstalled: await exists(runtimePath),
+    deepLink: codexPluginDeepLink()
+  };
 }
 
 export async function installHosts(
@@ -73,10 +166,17 @@ export async function installHosts(
     await backup(output);
     await rm(output, { recursive: true, force: true });
     await mkdir(output, { recursive: true });
-    const result = await adapter(host).compile(output, templates, [...ALL_ROLES]);
+    const embedded =
+      host === "codex" ? await installEmbeddedCoordinator(output) : undefined;
+    const result = await adapter(host).compile(output, templates, [...ALL_ROLES], {
+      ...(embedded ? { runtimeCommand: embedded.command } : {}),
+      desktopInstall: host === "codex"
+    });
+    if (embedded) result.files.push(...embedded.files);
     if (host === "codex" && !customOutput) {
       result.nextSteps.push(
-        `Codex personal marketplace updated: ${await updateCodexMarketplace(output)}`
+        `Codex personal marketplace updated: ${await updateCodexMarketplace()}`,
+        `Open Codex: ${codexPluginDeepLink()}`
       );
     }
     results.push(result);
@@ -91,7 +191,7 @@ export async function uninstallHosts(
     await rm(hostOutputDirectory(host), { recursive: true, force: true });
   }
   if (hosts.includes("codex")) {
-    const marketplacePath = join(homedir(), ".agents", "plugins", "marketplace.json");
+    const marketplacePath = codexMarketplacePath();
     try {
       const marketplace = JSON.parse(await readFile(marketplacePath, "utf8")) as {
         plugins?: Array<Record<string, unknown>>;

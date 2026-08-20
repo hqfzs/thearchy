@@ -10,6 +10,10 @@ thearchy doctor
 thearchy install --target all
 ```
 
+On Windows, double-click `install-codex-desktop.cmd` for a self-contained
+Codex desktop installation. The coordinator runtime is embedded in the plugin,
+so a global CLI link is not required.
+
 Start a governed run:
 
 ```bash
