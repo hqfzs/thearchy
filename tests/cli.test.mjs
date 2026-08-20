@@ -44,6 +44,13 @@ test("bundled CLI compiles Codex and Claude adapters", async () => {
   );
   assert.equal(codexManifest.interface.composerIcon, "./assets/composer-icon.png");
   assert.match(codexManifest.version, /\+codex\.local-\d{14}$/);
+  const codexSkill = await readFile(
+    join(output, "codex", "skills", "thearchy", "SKILL.md"),
+    "utf8"
+  );
+  assert.match(codexSkill, /model: gpt-5\.6-luna/);
+  assert.match(codexSkill, /reasoning_effort: max/);
+  assert.match(codexSkill, /root\/main agent's current model.*unchanged/);
   await access(
     join(
       output,

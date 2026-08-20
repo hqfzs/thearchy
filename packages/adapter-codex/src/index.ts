@@ -21,7 +21,7 @@ function codexAvailable(): boolean {
 function renderSkill(
   templates: TeamTemplate[],
   roles: RoleDefinition[],
-  runtimeCommand?: string
+  options: AdapterCompileOptions
 ): string {
   const templateList = templates
     .map((template) => `- \`${template.metadata.id}\`: ${template.metadata.displayName}`)
@@ -33,7 +33,20 @@ function renderSkill(
     )
     .join("\n");
 
-  const coordinatorCommand = runtimeCommand ?? "thearchy";
+  const coordinatorCommand = options.runtimeCommand ?? "thearchy";
+  const modelPolicy =
+    options.subagentModel && options.subagentReasoningEffort
+      ? `
+## Subagent model policy
+
+- Keep the root/main agent's current model and reasoning settings unchanged.
+- Spawn every governance and expert child agent with:
+  - \`model: ${options.subagentModel}\`
+  - \`reasoning_effort: ${options.subagentReasoningEffort}\`
+- Apply this override only when creating child agents. Never switch the root/main agent.
+- Do not silently fall back to another child-agent model. Report an unavailable model to the user.
+`
+      : "";
 
   return `---
 name: thearchy
@@ -49,6 +62,8 @@ Coordinator command:
 \`\`\`text
 ${coordinatorCommand}
 \`\`\`
+
+${modelPolicy}
 
 ## Workflow
 
@@ -153,7 +168,7 @@ export class CodexAdapter implements HostAdapter {
     }
 
     const skillPath = join(skillDirectory, "SKILL.md");
-    await writeFile(skillPath, renderSkill(templates, roles, options.runtimeCommand));
+    await writeFile(skillPath, renderSkill(templates, roles, options));
     files.push(skillPath);
 
     for (const role of roles) {

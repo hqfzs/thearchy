@@ -176,6 +176,9 @@ export interface AdapterCompileOptions {
   desktopInstall?: boolean;
   pluginAssetsDirectory?: string;
   version?: string;
+  subagentModel?: string;
+  subagentReasoningEffort?: string;
+  preserveMainModel?: boolean;
 }
 
 export interface HostAdapter {
