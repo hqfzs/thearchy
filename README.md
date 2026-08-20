@@ -9,6 +9,8 @@
 - 固定机器角色 ID 与希腊神话显示名称。
 - 本地 JSONL 审计日志和不可跳过的状态机。
 - 轻量、完整两种预算模式。
+- 完整模式默认采用4个子 Agent、并发2个、8分钟预算。
+- 主 Agent直接负责分类、派工和交付，减少治理开销。
 - 方案与成果两道独立裁决。
 - Git 基线记录和隔离 worktree。
 - Codex 与 Claude Code插件编译器。
@@ -112,6 +114,23 @@ thearchy run claim <run-id> \
   --instance router-1 \
   --model gpt-5.6-luna \
   --reasoning-effort max
+```
+
+以下治理角色由主 Agent 直接完成，不创建子 Agent：
+
+- `governance.router`
+- `governance.dispatcher`
+- `governance.publisher`
+- 轻量模式下的 `governance.planner`
+
+提交这些产物时使用 `--root`：
+
+```bash
+thearchy run submit <run-id> \
+  --role governance.router \
+  --instance root-main \
+  --artifact ./artifacts/classification.md \
+  --root
 ```
 
 保存角色产物后提交：

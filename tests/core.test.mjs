@@ -47,6 +47,23 @@ async function submitAs(
   });
 }
 
+async function submitRoot(
+  coordinator,
+  snapshot,
+  roleId,
+  artifactPath,
+  options = {}
+) {
+  return coordinator.submit({
+    runId: snapshot.id,
+    roleId,
+    instanceId: "root-main",
+    artifactPath,
+    rootManaged: true,
+    ...options
+  });
+}
+
 test("loads and validates all official template roles", async () => {
   const template = await loadTemplate(join(root, "templates", "feature-delivery.yaml"));
   assert.equal(template.metadata.id, "feature-delivery");
@@ -97,11 +114,10 @@ test("coordinator enforces the complete governance flow", async () => {
   });
   assert.equal(nextAction(snapshot).roleId, "governance.router");
 
-  snapshot = await submitAs(
+  snapshot = await submitRoot(
     coordinator,
     snapshot,
     "governance.router",
-    "router-1",
     await artifact(artifacts, "classification.md")
   );
   assert.equal(snapshot.state, "classified");
@@ -110,16 +126,7 @@ test("coordinator enforces the complete governance flow", async () => {
     coordinator,
     snapshot,
     "governance.planner",
-    "planner-a",
-    await artifact(artifacts, "draft-plan.md")
-  );
-  assert.equal(snapshot.state, "planning");
-
-  snapshot = await submitAs(
-    coordinator,
-    snapshot,
-    "governance.planner",
-    "planner-b",
+    "planner-1",
     await artifact(artifacts, "final-plan.md")
   );
   assert.equal(snapshot.state, "plan_review");
@@ -128,17 +135,16 @@ test("coordinator enforces the complete governance flow", async () => {
     coordinator,
     snapshot,
     "governance.judge",
-    "judge-plan",
+    "judge-1",
     await artifact(artifacts, "plan-verdict.md")
   );
   assert.equal(snapshot.state, "awaiting_plan_approval");
 
   snapshot = await coordinator.approve(snapshot.id, "plan");
-  snapshot = await submitAs(
+  snapshot = await submitRoot(
     coordinator,
     snapshot,
     "governance.dispatcher",
-    "dispatcher-1",
     await artifact(artifacts, "work-orders.md")
   );
   snapshot = await submitAs(
@@ -162,15 +168,14 @@ test("coordinator enforces the complete governance flow", async () => {
     coordinator,
     snapshot,
     "governance.judge",
-    "judge-result",
+    "judge-1",
     await artifact(artifacts, "result-verdict.md")
   );
   snapshot = await coordinator.approve(snapshot.id, "merge");
-  snapshot = await submitAs(
+  snapshot = await submitRoot(
     coordinator,
     snapshot,
     "governance.publisher",
-    "publisher-1",
     await artifact(artifacts, "delivery.md")
   );
   assert.equal(snapshot.state, "completed");
@@ -203,25 +208,16 @@ test("rejects plans and stops after the configured rework budget", async () => {
 
   const files = join(directory, "artifacts");
   await mkdir(files);
-  snapshot = await submitAs(
+  snapshot = await submitRoot(
     coordinator,
     snapshot,
     "governance.router",
-    "router-1",
     await artifact(files, "c.md")
   );
-  snapshot = await submitAs(
+  snapshot = await submitRoot(
     coordinator,
     snapshot,
     "governance.planner",
-    "planner-a",
-    await artifact(files, "p1.md")
-  );
-  snapshot = await submitAs(
-    coordinator,
-    snapshot,
-    "governance.planner",
-    "planner-b",
     await artifact(files, "p2.md")
   );
 
@@ -229,11 +225,10 @@ test("rejects plans and stops after the configured rework budget", async () => {
     snapshot = await coordinator.reject(snapshot.id, "plan", "missing evidence");
     assert.equal(snapshot.state, "rework");
     snapshot = await coordinator.resume(snapshot.id);
-    snapshot = await submitAs(
+    snapshot = await submitRoot(
       coordinator,
       snapshot,
       "governance.planner",
-      `planner-retry-${count}`,
       await artifact(files, `retry-${count}.md`)
     );
   }
@@ -246,19 +241,11 @@ test("rejects plans and stops after the configured rework budget", async () => {
 });
 
 async function advanceToExecuting(coordinator, snapshot, directory) {
-  snapshot = await submitAs(
+  snapshot = await submitRoot(
     coordinator,
     snapshot,
     "governance.router",
-    "router-budget",
     await artifact(directory, "budget-classification.md")
-  );
-  snapshot = await submitAs(
-    coordinator,
-    snapshot,
-    "governance.planner",
-    "planner-budget-a",
-    await artifact(directory, "budget-plan-a.md")
   );
   snapshot = await submitAs(
     coordinator,
@@ -275,11 +262,10 @@ async function advanceToExecuting(coordinator, snapshot, directory) {
     await artifact(directory, "budget-plan-verdict.md")
   );
   snapshot = await coordinator.approve(snapshot.id, "plan");
-  return submitAs(
+  return submitRoot(
     coordinator,
     snapshot,
     "governance.dispatcher",
-    "dispatcher-budget",
     await artifact(directory, "budget-work-orders.md")
   );
 }
@@ -324,7 +310,11 @@ test("enforces template specialists, concurrency, and competing implementation b
     template: feature,
     requestedMode: "full",
     cwd: directory,
-    budgetOverrides: { maxConcurrency: 2, maxAgents: 4 }
+    budgetOverrides: {
+      maxConcurrency: 2,
+      maxAgents: 6,
+      maxCompetingImplementations: 2
+    }
   });
   budgetRun = await advanceToExecuting(budgetCoordinator, budgetRun, artifacts);
   await budgetCoordinator.claim(
@@ -386,11 +376,10 @@ test("auto mode creates a decision request while explicit mode does not", async 
     requestedMode: "auto",
     cwd: directory
   });
-  autoRun = await submitAs(
+  autoRun = await submitRoot(
     coordinator,
     autoRun,
     "governance.router",
-    "router-auto",
     await artifact(artifacts, "auto-classification.md")
   );
   assert.equal(autoRun.state, "awaiting_mode_approval");
@@ -412,11 +401,10 @@ test("auto mode creates a decision request while explicit mode does not", async 
     requestedMode: "light",
     cwd: directory
   });
-  explicitRun = await submitAs(
+  explicitRun = await submitRoot(
     coordinator,
     explicitRun,
     "governance.router",
-    "router-explicit",
     await artifact(artifacts, "explicit-classification.md")
   );
   assert.equal(explicitRun.state, "classified");
@@ -616,7 +604,7 @@ test("persists, verifies, selects, and integrates workspace candidates", async (
     coordinator,
     snapshot,
     "governance.judge",
-    "candidate-judge",
+    "judge-budget",
     await artifact(artifacts, "candidate-judgment.md")
   );
   const decision = snapshot.decisions.find(

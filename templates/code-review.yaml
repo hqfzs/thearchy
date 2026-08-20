@@ -14,8 +14,9 @@ spec:
       maxConcurrency: 2
     full:
       strategy: competitive
-      maxAgents: 8
-      maxConcurrency: 4
+      maxAgents: 4
+      maxConcurrency: 2
+      timeoutMinutes: 8
       maxCompetingImplementations: 1
   governance:
     - governance.router

@@ -15,13 +15,13 @@ export const DEFAULT_BUDGETS: Record<EffectiveRunMode, RunBudget> = {
     leaseTimeoutMinutes: 5
   },
   full: {
-    maxAgents: 8,
-    maxConcurrency: 4,
-    timeoutMinutes: 60,
+    maxAgents: 4,
+    maxConcurrency: 2,
+    timeoutMinutes: 8,
     maxPlanReworks: 2,
     maxResultReworks: 1,
-    maxCompetingImplementations: 2,
-    leaseTimeoutMinutes: 10
+    maxCompetingImplementations: 1,
+    leaseTimeoutMinutes: 5
   }
 };
 

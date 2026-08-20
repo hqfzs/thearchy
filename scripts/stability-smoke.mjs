@@ -39,6 +39,17 @@ async function submit(snapshot, roleId, instanceId, name, options = {}) {
   });
 }
 
+async function submitRoot(snapshot, roleId, name, options = {}) {
+  return coordinator.submit({
+    runId: snapshot.id,
+    roleId,
+    instanceId: "root-main",
+    artifactPath: await artifact(snapshot.id, name),
+    rootManaged: true,
+    ...options
+  });
+}
+
 for (let index = 0; index < 20; index += 1) {
   let snapshot = await coordinator.start({
     task: `Stability run ${index + 1}`,
@@ -46,35 +57,26 @@ for (let index = 0; index < 20; index += 1) {
     requestedMode: "light",
     cwd: directory
   });
-  snapshot = await submit(
+  snapshot = await submitRoot(
     snapshot,
     "governance.router",
-    `router-${index}`,
     "classification.md"
   );
-  snapshot = await submit(
+  snapshot = await submitRoot(
     snapshot,
     "governance.planner",
-    `planner-a-${index}`,
-    "plan-a.md"
-  );
-  snapshot = await submit(
-    snapshot,
-    "governance.planner",
-    `planner-b-${index}`,
     "plan-b.md"
   );
   snapshot = await submit(
     snapshot,
     "governance.judge",
-    `judge-plan-${index}`,
+    `judge-${index}`,
     "plan-verdict.md"
   );
   snapshot = await coordinator.approve(snapshot.id, "plan");
-  snapshot = await submit(
+  snapshot = await submitRoot(
     snapshot,
     "governance.dispatcher",
-    `dispatcher-${index}`,
     "work-orders.md"
   );
   snapshot = await submit(
@@ -93,14 +95,13 @@ for (let index = 0; index < 20; index += 1) {
   snapshot = await submit(
     snapshot,
     "governance.judge",
-    `judge-result-${index}`,
+    `judge-${index}`,
     "result-verdict.md"
   );
   snapshot = await coordinator.approve(snapshot.id, "merge");
-  snapshot = await submit(
+  snapshot = await submitRoot(
     snapshot,
     "governance.publisher",
-    `publisher-${index}`,
     "delivery.md"
   );
   if (snapshot.state !== "completed") {

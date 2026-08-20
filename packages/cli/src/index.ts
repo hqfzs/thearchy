@@ -66,6 +66,7 @@ Usage:
   thearchy run claim <run-id> --role <role-id> --instance <instance-id>
     --model gpt-5.6-luna --reasoning-effort max
   thearchy run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path> [--final]
+    [--root]
   thearchy run release <run-id> --instance <instance-id>
   thearchy run heartbeat <run-id> --instance <instance-id>
   thearchy run recover-stale <run-id>
@@ -210,7 +211,8 @@ async function handleRun(command: string | undefined, parsed: ParsedArgs): Promi
           roleId: optionString(parsed, "role", true)!,
           instanceId: optionString(parsed, "instance", true)!,
           artifactPath: optionString(parsed, "artifact", true)!,
-          final: optionBoolean(parsed, "final")
+          final: optionBoolean(parsed, "final"),
+          rootManaged: optionBoolean(parsed, "root")
         }),
         true
       );

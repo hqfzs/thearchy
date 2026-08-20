@@ -11,6 +11,7 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   classified: [
     "awaiting_mode_approval",
     "planning",
+    "plan_review",
     "awaiting_conflict_decision",
     "cancelled",
     "failed"
@@ -152,8 +153,8 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
       action: "plan",
       instructions:
         snapshot.mode === "full"
-          ? "Produce two or three independent implementation plans."
-          : "Produce one concise implementation plan.",
+          ? "Produce one implementation plan with explicit alternatives and tradeoffs."
+          : "The root agent produces one concise implementation plan.",
       requiresUserApproval: false
     },
     awaiting_mode_approval: {

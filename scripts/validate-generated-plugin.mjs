@@ -31,6 +31,8 @@ for (const required of [
   "request_user_input",
   "run decide",
   "run request-operation",
+  "--instance root-main --root",
+  "four child agents",
   "gpt-5.6-luna",
   "reasoning_effort: max"
 ]) {

@@ -56,6 +56,7 @@ export interface SubmitArtifactInput {
   artifactPath: string;
   final?: boolean;
   actor?: string;
+  rootManaged?: boolean;
 }
 
 export interface ClaimAgentInput {
@@ -204,11 +205,8 @@ export class Coordinator {
         );
       }
       const role = ROLE_BY_ID.get(roleId)!;
-      if (!existing && !role.governance) {
-        const expertCount = snapshot.agentInstances.filter(
-          (instance) => ROLE_BY_ID.get(instance.roleId)?.governance === false
-        ).length;
-        if (expertCount >= snapshot.budget.maxAgents) {
+      if (!existing) {
+        if (snapshot.agentInstances.length >= snapshot.budget.maxAgents) {
           throw new Error(`Run agent budget exceeded (${snapshot.budget.maxAgents})`);
         }
         if (roleId === "expert.builder") {
@@ -520,18 +518,26 @@ export class Coordinator {
       assertRunActive(snapshot);
       this.ensureCoordinationFields(snapshot);
       this.assertRoleAllowed(snapshot, input.roleId);
-      const lease = snapshot.activeAgents.find(
-        (item) =>
-          item.instanceId === input.instanceId && item.roleId === input.roleId
-      );
-      if (!lease) {
+      const rootManaged = input.rootManaged ?? false;
+      if (rootManaged && !this.canRootManage(snapshot, input.roleId)) {
+        throw new Error(`Role ${input.roleId} cannot be managed by the root agent`);
+      }
+      const lease = rootManaged
+        ? undefined
+        : snapshot.activeAgents.find(
+            (item) =>
+              item.instanceId === input.instanceId && item.roleId === input.roleId
+          );
+      if (!rootManaged && !lease) {
         throw new Error(
           `Agent ${input.instanceId} must claim role ${input.roleId} before submitting`
         );
       }
-      const remainingAgents = snapshot.activeAgents.filter(
-        (item) => item.instanceId !== input.instanceId
-      );
+      const remainingAgents = rootManaged
+        ? snapshot.activeAgents
+        : snapshot.activeAgents.filter(
+            (item) => item.instanceId !== input.instanceId
+          );
       if (
         snapshot.state === "executing" &&
         (input.final ?? false) &&
@@ -557,8 +563,8 @@ export class Coordinator {
           events,
           snapshot.id,
           "artifact.submitted",
-          input.actor ?? input.instanceId,
-          { artifact, instanceId: input.instanceId }
+          input.actor ?? (rootManaged ? "root-main" : input.instanceId),
+          { artifact, instanceId: input.instanceId, rootManaged }
         )
       ];
       const emit = (
@@ -570,19 +576,21 @@ export class Coordinator {
           nextEvent([...events, ...emitted], snapshot.id, type, actor, data)
         );
       };
-      emitted.push(
-        nextEvent(
-          [...events, ...emitted],
-          snapshot.id,
-          "agent.released",
-          "system",
-          {
-            instanceId: input.instanceId,
-            roleId: input.roleId,
-            activeAgents: snapshot.activeAgents.length
-          }
-        )
-      );
+      if (!rootManaged) {
+        emitted.push(
+          nextEvent(
+            [...events, ...emitted],
+            snapshot.id,
+            "agent.released",
+            "system",
+            {
+              instanceId: input.instanceId,
+              roleId: input.roleId,
+              activeAgents: snapshot.activeAgents.length
+            }
+          )
+        );
+      }
       const previous = snapshot.state;
       const advance = this.stateAfterSubmission(snapshot, input.roleId, input.final ?? false);
       if (advance) {
@@ -1222,6 +1230,15 @@ export class Coordinator {
     }
   }
 
+  private canRootManage(snapshot: RunSnapshot, roleId: string): boolean {
+    return (
+      ["governance.router", "governance.dispatcher", "governance.publisher"].includes(
+        roleId
+      ) ||
+      (snapshot.mode === "light" && roleId === "governance.planner")
+    );
+  }
+
   private ensureCoordinationFields(snapshot: RunSnapshot): void {
     snapshot.modelPolicy ??= DEFAULT_MODEL_POLICY;
     snapshot.templatePermissions ??= {
@@ -1266,7 +1283,7 @@ export class Coordinator {
       case "created":
         return "classified";
       case "classified":
-        return "planning";
+        return "plan_review";
       case "planning":
         return "plan_review";
       case "plan_review":

@@ -71,14 +71,16 @@ ${modelPolicy}
 2. Call \`${coordinatorCommand} run next <run-id> --json\`.
 3. If \`next\` returns \`interaction\`, invoke \`mcp__choice_prompt__ask_user_choice\` first. If unavailable, use \`request_user_input\`. If neither is available, show the same options in chat and stop until the user replies. Never auto-select risk, conflict, or merge decisions.
 4. Submit the selected option with \`${coordinatorCommand} run decide <run-id> --request <decision-id> --choice <option-id>\`.
-5. Before spawning a child agent, reserve its slot with \`${coordinatorCommand} run claim <run-id> --role <role-id> --instance <instance-id> --model ${options.subagentModel ?? "gpt-5.6-luna"} --reasoning-effort ${options.subagentReasoningEffort ?? "max"}\`.
-6. Delegate only the claimed role and apply the subagent model policy.
-7. Send \`${coordinatorCommand} run heartbeat <run-id> --instance <instance-id>\` during long-running work.
-8. Save each role output as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Submission releases the slot.
-9. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
-10. Before network, dependency installation, destructive actions, migration, publishing, external writes, or sensitive reads, call \`${coordinatorCommand} run request-operation\` and resolve its interaction.
-11. Run detected verification commands before result review.
-12. Export the final report.
+5. The root/main agent performs \`governance.router\`, \`governance.dispatcher\`, and \`governance.publisher\` directly. In light mode it also performs \`governance.planner\`. Submit these artifacts with \`--instance root-main --root\`; do not spawn child agents for them.
+6. In full mode spawn one planner. Reuse one independent judge thread for plan and result review. Spawn only the minimum domain expert and tester needed. The normal topology is four child agents: planner, judge, expert, tester.
+7. Before spawning a child agent, reserve its slot with \`${coordinatorCommand} run claim <run-id> --role <role-id> --instance <instance-id> --model ${options.subagentModel ?? "gpt-5.6-luna"} --reasoning-effort ${options.subagentReasoningEffort ?? "max"}\`.
+8. Delegate only the claimed role and apply the subagent model policy.
+9. Send \`${coordinatorCommand} run heartbeat <run-id> --instance <instance-id>\` during long-running work.
+10. Save each child result as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Submission releases the slot.
+11. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
+12. Before network, dependency installation, destructive actions, migration, publishing, external writes, or sensitive reads, call \`${coordinatorCommand} run request-operation\` and resolve its interaction.
+13. Run detected verification commands before result review.
+14. Export the final report.
 
 Do not let planner, implementer, and judge share hidden reasoning or approve their own work.
 Do not read secret files or execute commands that require approval without user consent.

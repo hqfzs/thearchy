@@ -37,3 +37,11 @@ Automated test execution was unavailable in two Python review cases because
 4. Normalize defect reporting when a repair implicitly discovers a seeded bug.
 5. Repeat the 10-case pre-benchmark with one consistent budget profile.
 6. Complete the planned three repetitions per strategy.
+
+## Optimization applied
+
+After this diagnostic run, the default full-mode topology was reduced to four
+child agents with concurrency two and an eight-minute budget. Routing,
+dispatching, and publishing moved to the root agent; the same independent judge
+is reused for plan and result review. A second controlled pre-benchmark is
+required before release.
