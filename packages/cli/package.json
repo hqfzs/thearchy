@@ -1,0 +1,32 @@
+{
+  "name": "thearchy-cli",
+  "version": "0.1.0-beta.0",
+  "description": "神治（Thearchy）— deterministic multi-agent quality governance for coding agents.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "thearchy": "./dist/bin/thearchy.js"
+  },
+  "main": "./dist/bin/thearchy.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@thearchy/adapter-claude": "0.1.0-beta.0",
+    "@thearchy/adapter-codex": "0.1.0-beta.0",
+    "@thearchy/core": "0.1.0-beta.0"
+  }
+}

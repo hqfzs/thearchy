@@ -1,0 +1,44 @@
+apiVersion: thearchy.dev/v1alpha1
+kind: TeamTemplate
+metadata:
+  id: code-review
+  version: 0.1.0
+  displayName: 代码审查
+  description: 从正确性、架构、安全、测试和文档维度独立审查变更。
+spec:
+  triggers: [review, pull request, diff, 审查, 评审]
+  profiles:
+    light:
+      strategy: single
+      maxAgents: 3
+      maxConcurrency: 2
+    full:
+      strategy: competitive
+      maxAgents: 8
+      maxConcurrency: 4
+      maxCompetingImplementations: 1
+  governance:
+    - governance.router
+    - governance.planner
+    - governance.judge
+    - governance.dispatcher
+    - governance.publisher
+  specialists:
+    - expert.security
+    - expert.architect
+    - expert.tester
+    - expert.documenter
+  stages: [classify, scope-review, dispatch, inspect, verify, judge, publish]
+  qualityGates:
+    - evidence-required
+    - no-self-approval
+    - severity-calibration
+  capabilities: [test, lint, build, typecheck, security-scan]
+  permissions:
+    network: deny
+    dependencyInstall: deny
+    destructive: deny
+    externalWrite: deny
+  verification:
+    required: []
+    optional: [test, lint, build, typecheck, security-scan]

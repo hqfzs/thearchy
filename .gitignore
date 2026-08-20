@@ -1,0 +1,13 @@
+node_modules/
+.npm-cache/
+dist/
+*.tsbuildinfo
+coverage/
+.DS_Store
+Thumbs.db
+*.log
+*.tgz
+thearchy.spdx.json
+.thearchy/
+.git/thearchy/
+worktrees/

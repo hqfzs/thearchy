@@ -1,0 +1,45 @@
+apiVersion: thearchy.dev/v1alpha1
+kind: TeamTemplate
+metadata:
+  id: security-review
+  version: 0.1.0
+  displayName: 安全审查
+  description: 威胁建模、权限边界、依赖风险和可验证安全建议。
+spec:
+  triggers: [security, vulnerability, threat, 安全, 漏洞]
+  profiles:
+    light:
+      strategy: single
+      maxAgents: 3
+      maxConcurrency: 2
+    full:
+      strategy: competitive
+      maxAgents: 8
+      maxConcurrency: 4
+      maxCompetingImplementations: 2
+  governance:
+    - governance.router
+    - governance.planner
+    - governance.judge
+    - governance.dispatcher
+    - governance.publisher
+  specialists:
+    - expert.security
+    - expert.operations
+    - expert.tester
+    - expert.architect
+  stages: [classify, threat-model, review-plan, inspect, verify, judge, publish]
+  qualityGates:
+    - secret-access-denied
+    - threat-model-reviewed
+    - exploit-evidence-sanitized
+    - independent-result-review
+  capabilities: [test, security-scan, lint]
+  permissions:
+    network: approval
+    dependencyInstall: approval
+    destructive: deny
+    externalWrite: deny
+  verification:
+    required: [security-scan]
+    optional: [test, lint, build]

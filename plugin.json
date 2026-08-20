@@ -1,0 +1,34 @@
+{
+  "name": "thearchy",
+  "version": "0.1.0-beta.0",
+  "description": "Local multi-agent quality governance for software development.",
+  "author": {
+    "name": "Thearchy Contributors"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "agents",
+    "multi-agent",
+    "codex",
+    "claude-code",
+    "software-quality"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "神治 / Thearchy",
+    "shortDescription": "Governed multi-agent software delivery",
+    "longDescription": "Plan, review, execute, verify, and deliver code through deterministic multi-agent quality gates.",
+    "developerName": "Thearchy Contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use Thearchy to implement this feature with independent review.",
+      "Use Thearchy to diagnose and fix this bug.",
+      "Use Thearchy to perform a security review."
+    ],
+    "brandColor": "#465DFF"
+  }
+}

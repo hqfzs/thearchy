@@ -1,0 +1,46 @@
+apiVersion: thearchy.dev/v1alpha1
+kind: TeamTemplate
+metadata:
+  id: refactor-migration
+  version: 0.1.0
+  displayName: 重构迁移
+  description: 面向架构重构、依赖升级和数据迁移的隔离交付流程。
+spec:
+  triggers: [refactor, migration, upgrade, 重构, 迁移, 升级]
+  profiles:
+    light:
+      strategy: single
+      maxAgents: 3
+      maxConcurrency: 2
+    full:
+      strategy: competitive
+      maxAgents: 8
+      maxConcurrency: 4
+      maxCompetingImplementations: 2
+  governance:
+    - governance.router
+    - governance.planner
+    - governance.judge
+    - governance.dispatcher
+    - governance.publisher
+  specialists:
+    - expert.migrator
+    - expert.architect
+    - expert.builder
+    - expert.tester
+    - expert.data
+  stages: [classify, impact-analysis, review-plan, migrate, verify, judge, publish]
+  qualityGates:
+    - rollback-plan
+    - compatibility-review
+    - regression-test
+    - user-merge-approval
+  capabilities: [test, lint, build, typecheck]
+  permissions:
+    network: approval
+    dependencyInstall: approval
+    destructive: approval
+    externalWrite: approval
+  verification:
+    required: [test, build]
+    optional: [lint, typecheck, security-scan]

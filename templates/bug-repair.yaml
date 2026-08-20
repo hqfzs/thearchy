@@ -1,0 +1,45 @@
+apiVersion: thearchy.dev/v1alpha1
+kind: TeamTemplate
+metadata:
+  id: bug-repair
+  version: 0.1.0
+  displayName: Bug 修复
+  description: 独立根因分析、修复和回归验证。
+spec:
+  triggers: [bug, fix, regression, 故障, 修复]
+  profiles:
+    light:
+      strategy: single
+      maxAgents: 3
+      maxConcurrency: 2
+    full:
+      strategy: competitive
+      maxAgents: 7
+      maxConcurrency: 4
+      maxCompetingImplementations: 2
+  governance:
+    - governance.router
+    - governance.planner
+    - governance.judge
+    - governance.dispatcher
+    - governance.publisher
+  specialists:
+    - expert.debugger
+    - expert.builder
+    - expert.tester
+    - expert.architect
+  stages: [classify, diagnose, review-plan, repair, verify, review-result, publish]
+  qualityGates:
+    - reproducible-root-cause
+    - regression-test
+    - independent-result-review
+    - user-merge-approval
+  capabilities: [test, lint, typecheck]
+  permissions:
+    network: approval
+    dependencyInstall: approval
+    destructive: approval
+    externalWrite: approval
+  verification:
+    required: [test]
+    optional: [lint, typecheck, build]

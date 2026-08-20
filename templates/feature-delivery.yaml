@@ -1,0 +1,53 @@
+apiVersion: thearchy.dev/v1alpha1
+kind: TeamTemplate
+metadata:
+  id: feature-delivery
+  version: 0.1.0
+  displayName: 功能开发
+  description: 从需求分析到可合并代码的完整交付流程。
+spec:
+  triggers: [feature, implement, 新功能, 实现]
+  profiles:
+    light:
+      strategy: single
+      maxAgents: 3
+      maxConcurrency: 2
+    full:
+      strategy: competitive
+      maxAgents: 8
+      maxConcurrency: 4
+      maxCompetingImplementations: 2
+  governance:
+    - governance.router
+    - governance.planner
+    - governance.judge
+    - governance.dispatcher
+    - governance.publisher
+  specialists:
+    - expert.builder
+    - expert.tester
+    - expert.architect
+    - expert.documenter
+    - expert.data
+  stages:
+    - classify
+    - plan
+    - review-plan
+    - execute
+    - verify
+    - review-result
+    - publish
+  qualityGates:
+    - independent-plan-review
+    - automated-verification
+    - independent-result-review
+    - user-merge-approval
+  capabilities: [test, lint, build, typecheck]
+  permissions:
+    network: approval
+    dependencyInstall: approval
+    destructive: approval
+    externalWrite: approval
+  verification:
+    required: [test]
+    optional: [lint, build, typecheck, security-scan]
