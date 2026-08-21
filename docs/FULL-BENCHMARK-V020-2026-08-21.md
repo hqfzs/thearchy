@@ -20,4 +20,6 @@ Thearchy found all seeded defects, but independent post-run verification found o
 
 The verification contract and Agent instructions were strengthened to require explicit type-confusion and boundary evidence. Three fresh `feature-py` Thearchy reruns completed with 45/45 boundary checks and zero regressions. See `BOUNDARY-RETEST-V020-2026-08-21.md`.
 
-This targeted retest resolves the discovered defect but does not replace a complete post-hardening rerun of all affected feature, bug-fix, and migration cases.
+The remaining affected feature, bug-fix, and migration cases were subsequently rerun three times: 15/15 completed, 15/15 tests passed, 160/160 boundary checks passed, and zero regressions. Combined with the three successful `feature-py` reruns, all 18 affected runs passed.
+
+Final release gate after hardening: **PASS**. See `AFFECTED-RETEST-V020-2026-08-21.md`.

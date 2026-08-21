@@ -1,0 +1,21 @@
+{
+  "date": "2026-08-21",
+  "version": "0.2.0",
+  "initialBenchmark": {
+    "runs": 60,
+    "singleAgentCompleted": 30,
+    "thearchyCompleted": 30,
+    "seededDefects": "24/24",
+    "initialRegressions": 1
+  },
+  "hardeningRetests": {
+    "featurePyRuns": 3,
+    "remainingAffectedRuns": 15,
+    "completed": 18,
+    "testsPassed": 18,
+    "boundaryChecks": 205,
+    "boundaryChecksPassed": 205,
+    "regressions": 0
+  },
+  "releaseGatePassed": true
+}
