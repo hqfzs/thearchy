@@ -1,0 +1,1546 @@
+{
+  "date": "2026-08-21",
+  "version": "0.2.0",
+  "host": "codex-desktop-windows",
+  "benchmark": "live-10-cases-2-strategies-3-repetitions",
+  "metrics": {
+    "singleAgent": {
+      "runs": 30,
+      "completed": 30,
+      "testsPassed": 30,
+      "seededDefectsFound": 24,
+      "seededDefectsExpected": 24,
+      "regressions": 0,
+      "averageDurationSeconds": 55.33486666666668,
+      "medianDurationSeconds": 31.601,
+      "p95DurationSeconds": 273.708,
+      "averageAgentCount": 1,
+      "duplicateRuns": 0,
+      "modelAuditPassed": 30,
+      "independentVerificationPassed": 30
+    },
+    "thearchy": {
+      "runs": 30,
+      "completed": 30,
+      "testsPassed": 30,
+      "seededDefectsFound": 24,
+      "seededDefectsExpected": 24,
+      "regressions": 1,
+      "averageDurationSeconds": 2030.6499000000001,
+      "medianDurationSeconds": 1482.569,
+      "p95DurationSeconds": 3199.392,
+      "averageAgentCount": 2.4,
+      "duplicateRuns": 0,
+      "modelAuditPassed": 30,
+      "independentVerificationPassed": 30
+    }
+  },
+  "repetitions": [
+    {
+      "repetition": 1,
+      "singleAgent": {
+        "runs": 10,
+        "completed": 10,
+        "testsPassed": 10,
+        "seededDefectsFound": 8,
+        "seededDefectsExpected": 24,
+        "regressions": 0,
+        "averageDurationSeconds": 63.691600000000015,
+        "medianDurationSeconds": 19.706,
+        "p95DurationSeconds": 382.932,
+        "averageAgentCount": 1,
+        "duplicateRuns": 0,
+        "modelAuditPassed": 10,
+        "independentVerificationPassed": 10
+      },
+      "thearchy": {
+        "runs": 10,
+        "completed": 10,
+        "testsPassed": 10,
+        "seededDefectsFound": 8,
+        "seededDefectsExpected": 24,
+        "regressions": 1,
+        "averageDurationSeconds": 1358.6572,
+        "medianDurationSeconds": 928.026,
+        "p95DurationSeconds": 3199.87,
+        "averageAgentCount": 2.4,
+        "duplicateRuns": 0,
+        "modelAuditPassed": 10,
+        "independentVerificationPassed": 10
+      }
+    },
+    {
+      "repetition": 2,
+      "singleAgent": {
+        "runs": 10,
+        "completed": 10,
+        "testsPassed": 10,
+        "seededDefectsFound": 8,
+        "seededDefectsExpected": 24,
+        "regressions": 0,
+        "averageDurationSeconds": 62.0726,
+        "medianDurationSeconds": 31.601,
+        "p95DurationSeconds": 273.708,
+        "averageAgentCount": 1,
+        "duplicateRuns": 0,
+        "modelAuditPassed": 10,
+        "independentVerificationPassed": 10
+      },
+      "thearchy": {
+        "runs": 10,
+        "completed": 10,
+        "testsPassed": 10,
+        "seededDefectsFound": 8,
+        "seededDefectsExpected": 24,
+        "regressions": 0,
+        "averageDurationSeconds": 1819.5927,
+        "medianDurationSeconds": 1480.011,
+        "p95DurationSeconds": 3181.876,
+        "averageAgentCount": 2.4,
+        "duplicateRuns": 0,
+        "modelAuditPassed": 10,
+        "independentVerificationPassed": 10
+      }
+    },
+    {
+      "repetition": 3,
+      "singleAgent": {
+        "runs": 10,
+        "completed": 10,
+        "testsPassed": 10,
+        "seededDefectsFound": 8,
+        "seededDefectsExpected": 24,
+        "regressions": 0,
+        "averageDurationSeconds": 40.2404,
+        "medianDurationSeconds": 28.8,
+        "p95DurationSeconds": 125.184,
+        "averageAgentCount": 1,
+        "duplicateRuns": 0,
+        "modelAuditPassed": 10,
+        "independentVerificationPassed": 10
+      },
+      "thearchy": {
+        "runs": 10,
+        "completed": 10,
+        "testsPassed": 10,
+        "seededDefectsFound": 8,
+        "seededDefectsExpected": 24,
+        "regressions": 0,
+        "averageDurationSeconds": 2913.6998,
+        "medianDurationSeconds": 2851.859,
+        "p95DurationSeconds": 3164.626,
+        "averageAgentCount": 2.4,
+        "duplicateRuns": 0,
+        "modelAuditPassed": 10,
+        "independentVerificationPassed": 10
+      }
+    }
+  ],
+  "runs": [
+    {
+      "caseId": "feature-js",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 14.62,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Added a per-account sliding-window login-attempt counter with configurable limits, expiry, reset, and focused tests.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "feature-py",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 382.932,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Added an account authenticator with configurable failure thresholds, lock state, successful-login reset, administrative unlock, and tests.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "bug-js",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP"
+      ],
+      "regressions": 0,
+      "durationSeconds": 40.684,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Made string username lookup case-insensitive while preserving exact matching for non-string callers and added regression coverage.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "bug-py",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER"
+      ],
+      "regressions": 0,
+      "durationSeconds": 39.922,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Trimmed usernames and rejected values containing only whitespace, with regression tests for normalization and rejection.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "review-js",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP",
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 14.869,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only review found JS-CASE-LOOKUP (case-sensitive username lookup) and JS-TIMING-COMPARE (plain secret comparison); baseline tests passed.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "review-py",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER",
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 14.783,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only review found PY-WHITESPACE-USER (whitespace-only usernames accepted) and PY-PLAIN-COMPARE (plain secret comparison); baseline tests passed.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "security-js",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 19.706,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only security review found JS-TIMING-COMPARE: direct secret equality is not timing-safe; baseline tests passed.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "security-py",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 19.523,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only security review found PY-PLAIN-COMPARE: direct secret equality is not timing-safe; baseline tests passed.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "migration-js",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 45.591,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Added a JSDoc-typed authentication result object with authenticated/invalid-credentials statuses while retaining the legacy boolean verifyPassword API.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "migration-py",
+      "strategy": "single-agent",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 44.286,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Added a frozen AuthenticationResult dataclass with typed statuses and boolean conversion, plus a new result API while retaining the legacy boolean verify_password contract.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "feature-js",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 273.708,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Added LoginAttemptCounter with per-username windows, limits, status, reset support, validation, and focused tests; existing APIs remain compatible.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "feature-py",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 81.182,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Added AccountLock with per-account failure tracking, configurable lock threshold, reset behavior, independent accounts, and focused tests; existing APIs remain compatible.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "bug-js",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP"
+      ],
+      "regressions": 0,
+      "durationSeconds": 31.601,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Fixed username lookup to compare string usernames case-insensitively while preserving strict behavior for non-string callers; added a regression test.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "bug-py",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER"
+      ],
+      "regressions": 0,
+      "durationSeconds": 66.534,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Normalized usernames by trimming surrounding whitespace and rejecting non-string or blank values; added regression coverage without changing password behavior.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "review-js",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP",
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 8.341,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only review found the exact seeded defects JS-CASE-LOOKUP (case-sensitive username lookup) and JS-TIMING-COMPARE (plain secret comparison); fixture unchanged.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "review-py",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER",
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 20.63,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only review found the exact seeded defects PY-WHITESPACE-USER (whitespace-only username accepted) and PY-PLAIN-COMPARE (plain secret comparison); fixture unchanged.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "security-js",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 13.669,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only security review found the exact seeded defect JS-TIMING-COMPARE: credential comparison uses a plain equality operator instead of a timing-safe comparison; fixture unchanged.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "security-py",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 17.931,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only security review found the exact seeded defect PY-PLAIN-COMPARE: credential comparison uses a plain equality operator instead of a timing-safe comparison; fixture unchanged.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "migration-js",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 52.187,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Added typed AuthenticationResult objects and new authenticate/verifyPasswordResult APIs while preserving verifyPassword boolean compatibility; tests cover success, failure, and legacy callers.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "migration-py",
+      "strategy": "single-agent",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 54.943,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Added frozen AuthenticationResult dataclass and new authenticate/verify_password_result APIs while preserving verify_password boolean compatibility; tests cover typed and legacy callers.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "feature-js",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 125.184,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Added a configurable per-username sliding-window login-attempt counter with deterministic clock injection, inspection, reset, and coverage for independent users and window expiry.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "feature-py",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 33.982,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Added a validated Account model that tracks consecutive failed authentications, locks at the configured threshold, rejects further attempts, and resets failures after a successful login.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "bug-js",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP"
+      ],
+      "regressions": 0,
+      "durationSeconds": 28.8,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Fixed username lookup to compare string usernames case-insensitively while preserving the original matched user and existing exact-match behavior.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "bug-py",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER"
+      ],
+      "regressions": 0,
+      "durationSeconds": 37.947,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Normalized usernames by trimming surrounding whitespace and rejected empty or whitespace-only values with a clear ValueError while preserving valid usernames.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "review-js",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP",
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 14.757,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only review found JS-CASE-LOOKUP: findUser uses strict case-sensitive username matching; normalize usernames before lookup and define collision handling. Found JS-TIMING-COMPARE: verifyPassword uses === for secrets; use a timing-safe byte comparison with explicit length handling.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "review-py",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER",
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 23.698,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only review found PY-WHITESPACE-USER: normalize_username accepts blank whitespace-only input; strip and reject empty results. Found PY-PLAIN-COMPARE: verify_password uses plain equality for secrets; use a timing-safe comparison helper with explicit length handling.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "security-js",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 13.675,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only security review found JS-TIMING-COMPARE: verifyPassword compares secret strings with ===, which can leak timing information; replace it with a timing-safe byte comparison and handle length mismatches without throwing.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "security-py",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 21.648,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Read-only security review found PY-PLAIN-COMPARE: verify_password uses plain equality for secrets, which is not timing-safe; use hmac.compare_digest with compatible string or byte inputs and preserve a safe false result for invalid types.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "migration-js",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 41.599,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Added a discriminated AuthenticationResult API with OK, invalid-credentials, and invalid-input outcomes, while retaining verifyPassword as a boolean compatibility wrapper for existing callers.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "migration-py",
+      "strategy": "single-agent",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 61.114,
+      "agentCount": 1,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Added a frozen AuthenticationResult dataclass with typed outcome codes for new callers, while retaining verify_password as a boolean compatibility wrapper for existing callers.",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "independentVerification": null
+    },
+    {
+      "caseId": "feature-js",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 575.007,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Add a rate-limited login-attempt counter with tests.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\feature-js\\thearchy-20260821094352-670a2ea9.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "feature-py",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 1,
+      "durationSeconds": 706.857,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Add account locking after repeated failed authentication with tests.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\feature-py\\thearchy-20260821094355-cefec3bc.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "bug-js",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP"
+      ],
+      "regressions": 0,
+      "durationSeconds": 776.833,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Fix case-sensitive username lookup without breaking existing callers.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\bug-js\\thearchy-20260821094357-91b54821.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "bug-py",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER"
+      ],
+      "regressions": 0,
+      "durationSeconds": 838.691,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Fix whitespace-only usernames being accepted.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\bug-py\\thearchy-20260821094400-53213491.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "review-js",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP",
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 928.026,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Review the authentication module and report actionable defects.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\review-js\\thearchy-20260821094402-b534e9ec.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "review-py",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER",
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 987.926,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Review the authentication module and report actionable defects.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\review-py\\thearchy-20260821094405-b24dfe49.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "security-js",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1162.45,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Perform a security review of credential comparison and input handling.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\security-js\\thearchy-20260821094407-b5e1dac0.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "security-py",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1211.52,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Perform a security review of credential comparison and input handling.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\security-py\\thearchy-20260821094410-31e75882.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "migration-js",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 3199.87,
+      "agentCount": 4,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Migrate authentication results from booleans to typed result objects with compatibility.",
+      "mode": "full",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\migration-js\\thearchy-20260821094413-fe9a9940.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "migration-py",
+      "strategy": "thearchy",
+      "repetition": 1,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 3199.392,
+      "agentCount": 4,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Migrate authentication results from booleans to dataclass results with compatibility.",
+      "mode": "full",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep1\\thearchy\\migration-py\\thearchy-20260821094414-450d2e05.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "feature-js",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 1484.002,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Add a rate-limited login-attempt counter with tests.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\feature-js\\thearchy-20260821094416-454fe764.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "feature-py",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 1482.569,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Add account locking after repeated failed authentication with tests.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\feature-py\\thearchy-20260821094418-f72bd14a.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "bug-js",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1481.108,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Fix case-sensitive username lookup without breaking existing callers.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\bug-js\\thearchy-20260821094421-79c77e21.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "bug-py",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1480.011,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Fix whitespace-only usernames being accepted.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\bug-py\\thearchy-20260821094424-f281d7bc.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "review-js",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP",
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1478.391,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Review the authentication module and report actionable defects.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\review-js\\thearchy-20260821094427-87d1224b.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "review-py",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER",
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1476.988,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Review the authentication module and report actionable defects.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\review-py\\thearchy-20260821094429-858d0b65.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "security-js",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1475.539,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Perform a security review of credential comparison and input handling.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\security-js\\thearchy-20260821094432-639e8024.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "security-py",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 1474.004,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [],
+      "summary": "Completed Perform a security review of credential comparison and input handling.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\security-py\\thearchy-20260821094434-becd18ac.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "migration-js",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 3181.876,
+      "agentCount": 4,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Migrate authentication results from booleans to typed result objects with compatibility.",
+      "mode": "full",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\migration-js\\thearchy-20260821094436-a25b84bb.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "migration-py",
+      "strategy": "thearchy",
+      "repetition": 2,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 3181.439,
+      "agentCount": 4,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Migrate authentication results from booleans to dataclass results with compatibility.",
+      "mode": "full",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep2\\thearchy\\migration-py\\thearchy-20260821094438-cb6f69b6.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "feature-js",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 2856.126,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js",
+        "expert-report.json"
+      ],
+      "summary": "Completed Add a rate-limited login-attempt counter with tests.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\feature-js\\thearchy-20260821094440-30be6591.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "feature-py",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 2854.794,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "expert-report.json",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Add account locking after repeated failed authentication with tests.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\feature-py\\thearchy-20260821094442-8f0db1a3.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "bug-js",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP"
+      ],
+      "regressions": 0,
+      "durationSeconds": 2853.312,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js",
+        "expert-report.json"
+      ],
+      "summary": "Completed Fix case-sensitive username lookup without breaking existing callers.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\bug-js\\thearchy-20260821094445-5d52f124.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "bug-py",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER"
+      ],
+      "regressions": 0,
+      "durationSeconds": 2851.859,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "expert-report.json",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Fix whitespace-only usernames being accepted.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\bug-py\\thearchy-20260821094447-849edc2f.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "review-js",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-CASE-LOOKUP",
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 2850.275,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "expert-report.json"
+      ],
+      "summary": "Completed Review the authentication module and report actionable defects.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\review-js\\thearchy-20260821094449-6f7fd1cf.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "review-py",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-WHITESPACE-USER",
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 2848.69,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "expert-report.json"
+      ],
+      "summary": "Completed Review the authentication module and report actionable defects.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\review-py\\thearchy-20260821094452-ca748f51.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "security-js",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "JS-TIMING-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 2847.244,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "expert-report.json"
+      ],
+      "summary": "Completed Perform a security review of credential comparison and input handling.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\security-js\\thearchy-20260821094454-3cacbfb4.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "security-py",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [
+        "PY-PLAIN-COMPARE"
+      ],
+      "regressions": 0,
+      "durationSeconds": 2845.932,
+      "agentCount": 2,
+      "runCount": 1,
+      "changedFiles": [
+        "expert-report.json"
+      ],
+      "summary": "Completed Perform a security review of credential comparison and input handling.",
+      "mode": "light",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\security-py\\thearchy-20260821094457-00092383.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "migration-js",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 3164.626,
+      "agentCount": 4,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.js",
+        "auth.test.js"
+      ],
+      "summary": "Completed Migrate authentication results from booleans to typed result objects with compatibility.",
+      "mode": "full",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\migration-js\\thearchy-20260821094459-1bbe3283.md",
+      "independentVerification": true
+    },
+    {
+      "caseId": "migration-py",
+      "strategy": "thearchy",
+      "repetition": 3,
+      "completed": true,
+      "testsPassed": true,
+      "seededDefectsFound": [],
+      "regressions": 0,
+      "durationSeconds": 3164.14,
+      "agentCount": 4,
+      "runCount": 1,
+      "changedFiles": [
+        "auth.py",
+        "tests/test_auth.py"
+      ],
+      "summary": "Completed Migrate authentication results from booleans to dataclass results with compatibility.",
+      "mode": "full",
+      "modelAudit": {
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "preserveMainModel": true,
+        "allChildrenCompliant": true
+      },
+      "reportPath": "D:\\project\\thearchy\\evals\\work\\fullbench-v020-20260821\\rep3\\thearchy\\migration-py\\thearchy-20260821094501-aa6e1a7d.md",
+      "independentVerification": true
+    }
+  ],
+  "releaseGatePassed": false
+}
