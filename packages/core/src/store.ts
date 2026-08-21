@@ -3,6 +3,7 @@ import {
   copyFile,
   mkdir,
   open,
+  readdir,
   readFile,
   rename,
   rm,
@@ -128,6 +129,43 @@ export class RunStore {
       .split(/\r?\n/)
       .filter(Boolean)
       .map((line) => JSON.parse(line) as RunEvent);
+  }
+
+  async findActiveRun(criteria: {
+    repositoryRoot?: string | undefined;
+    taskFingerprint: string;
+    templateId: string;
+  }): Promise<RunSnapshot | undefined> {
+    const runsDirectory = join(this.rootDirectory, "runs");
+    let entries;
+    try {
+      entries = await readdir(runsDirectory, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+    const matches: RunSnapshot[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const snapshot = await this.load(entry.name);
+        if (
+          !["completed", "cancelled"].includes(snapshot.state) &&
+          !snapshot.readOnlyRecovery &&
+          snapshot.taskFingerprint === criteria.taskFingerprint &&
+          snapshot.templateId === criteria.templateId &&
+          (snapshot.repositoryRoot ?? "") === (criteria.repositoryRoot ?? "")
+        ) {
+          matches.push(snapshot);
+        }
+      } catch {
+        // Corrupted runs are ignored here and remain available for recovery.
+      }
+    }
+    return matches.sort(
+      (left, right) =>
+        Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+    )[0];
   }
 
   async update(

@@ -79,8 +79,9 @@ ${modelPolicy}
 10. Save each child result as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Submission releases the slot.
 11. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
 12. Before network, dependency installation, destructive actions, migration, publishing, external writes, or sensitive reads, call \`${coordinatorCommand} run request-operation\` and resolve its interaction.
-13. Run detected verification commands before result review.
-14. Export the final report.
+13. When \`next\` returns \`parallelRoles\`, run those child roles concurrently within the coordinator concurrency budget. During verification, run the tester and reusable result judge in parallel.
+14. Never start a second run for the same task and repository. If \`run start\` returns an existing run ID, resume it.
+15. Export the final report.
 
 Do not let planner, implementer, and judge share hidden reasoning or approve their own work.
 Do not read secret files or execute commands that require approval without user consent.

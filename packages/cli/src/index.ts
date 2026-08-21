@@ -61,7 +61,7 @@ Usage:
   thearchy desktop status
   thearchy desktop uninstall
   thearchy doctor
-  thearchy run start --template <id> --task <text> [--mode auto|light|full]
+  thearchy run start --template <id> --task <text> [--mode auto|light|full] [--allow-duplicate]
   thearchy run next <run-id> [--json]
   thearchy run claim <run-id> --role <role-id> --instance <instance-id>
     --model gpt-5.6-luna --reasoning-effort max
@@ -130,7 +130,8 @@ async function handleRun(command: string | undefined, parsed: ParsedArgs): Promi
         template: await findTemplate(templateId),
         requestedMode: rawMode as RunMode,
         cwd: process.cwd(),
-        budgetOverrides
+        budgetOverrides,
+        allowDuplicate: optionBoolean(parsed, "allow-duplicate")
       });
       output(snapshot, true);
       return;

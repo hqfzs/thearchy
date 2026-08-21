@@ -9,8 +9,9 @@
 - 固定机器角色 ID 与希腊神话显示名称。
 - 本地 JSONL 审计日志和不可跳过的状态机。
 - 轻量、完整两种预算模式。
-- 完整模式默认采用4个子 Agent、并发2个、8分钟预算。
+- 完整模式默认采用4个子 Agent、并发2个、10分钟预算。
 - 主 Agent直接负责分类、派工和交付，减少治理开销。
+- 相同仓库、模板和任务会复用活动运行，避免超时后重复启动。
 - 方案与成果两道独立裁决。
 - Git 基线记录和隔离 worktree。
 - Codex 与 Claude Code插件编译器。
@@ -157,6 +158,8 @@ thearchy run submit <run-id> \
 ```bash
 thearchy run heartbeat <run-id> --instance builder-1
 ```
+
+验证阶段会并行运行测试 Agent 和复用的裁决 Agent，以缩短最终质量门耗时。
 
 高风险操作必须先发起询问：
 

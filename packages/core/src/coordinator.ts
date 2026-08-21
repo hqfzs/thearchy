@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { resolve } from "node:path";
 import { assessRisk } from "./risk.js";
 import { resolveBudget } from "./budget.js";
@@ -32,6 +32,12 @@ function runId(): string {
   return `${timestamp}-${randomBytes(4).toString("hex")}`;
 }
 
+function taskFingerprint(task: string): string {
+  return createHash("sha256")
+    .update(task.trim().replace(/\s+/g, " ").toLowerCase())
+    .digest("hex");
+}
+
 function transition(snapshot: RunSnapshot, state: RunState): void {
   assertTransition(snapshot.state, state);
   snapshot.previousState = snapshot.state;
@@ -47,6 +53,7 @@ export interface StartRunInput {
   requestedMode: RunMode;
   cwd: string;
   budgetOverrides?: Partial<RunBudget>;
+  allowDuplicate?: boolean;
 }
 
 export interface SubmitArtifactInput {
@@ -79,9 +86,25 @@ export class Coordinator {
   constructor(readonly store: RunStore) {}
 
   async start(input: StartRunInput): Promise<RunSnapshot> {
-    const id = runId();
     const risk = assessRisk(input.task, input.requestedMode);
     const baseline = inspectGitBaseline(input.cwd);
+    const fingerprint = taskFingerprint(input.task);
+    if (!input.allowDuplicate) {
+      const existing = await this.store.findActiveRun({
+        repositoryRoot: baseline.repositoryRoot,
+        taskFingerprint: fingerprint,
+        templateId: input.template.metadata.id
+      });
+      if (existing) {
+        return this.store.update(existing.id, (_snapshot, events) =>
+          nextEvent(events, existing.id, "run.resumed", "system", {
+            reason: "duplicate-start-prevented",
+            taskFingerprint: fingerprint
+          })
+        );
+      }
+    }
+    const id = runId();
     const modeBudgets = {
       light: resolveBudget(
         "light",
@@ -100,6 +123,7 @@ export class Coordinator {
       id,
       schemaVersion: 2,
       task: input.task,
+      taskFingerprint: fingerprint,
       templateId: input.template.metadata.id,
       requestedMode: input.requestedMode,
       mode: risk.effectiveMode,
@@ -107,6 +131,8 @@ export class Coordinator {
       state: "created",
       planReworks: 0,
       resultReworks: 0,
+      verificationCompleted: false,
+      resultReviewCompleted: false,
       modelPolicy: DEFAULT_MODEL_POLICY,
       templatePermissions: { ...input.template.spec.permissions },
       allowedGovernance: [...input.template.spec.governance],
@@ -667,7 +693,10 @@ export class Coordinator {
             { planArtifactId: artifact.id }
           );
           emit("decision.requested", "system", { decision });
-        } else if (previous === "result_review") {
+        } else if (
+          (previous === "result_review" || previous === "verification") &&
+          snapshot.state === "awaiting_merge_approval"
+        ) {
           const options: DecisionOption[] = snapshot.candidates
             .filter((candidate) =>
               ["verified", "selected"].includes(candidate.status)
@@ -1214,7 +1243,7 @@ export class Coordinator {
       executing: snapshot.allowedSpecialists.filter(
         (candidate) => candidate !== "expert.tester"
       ),
-      verification: ["expert.tester"],
+      verification: ["expert.tester", "governance.judge"],
       result_review: ["governance.judge"],
       integrating: ["governance.publisher"]
     };
@@ -1291,9 +1320,18 @@ export class Coordinator {
       case "dispatching":
         return "executing";
       case "executing":
-        return final ? "verification" : undefined;
+        if (final) {
+          snapshot.verificationCompleted = false;
+          snapshot.resultReviewCompleted = false;
+          return "verification";
+        }
+        return undefined;
       case "verification":
-        return "result_review";
+        if (roleId === "expert.tester") snapshot.verificationCompleted = true;
+        if (roleId === "governance.judge") snapshot.resultReviewCompleted = true;
+        return snapshot.verificationCompleted && snapshot.resultReviewCompleted
+          ? "awaiting_merge_approval"
+          : undefined;
       case "result_review":
         return "awaiting_merge_approval";
       case "integrating":

@@ -10,9 +10,13 @@
 - Added plugin validation, package smoke testing, 20-run stability testing,
   CodeQL, and Dependabot.
 - Reduced default full-mode governance to four child agents, concurrency two,
-  and an eight-minute budget.
+  and a ten-minute budget.
 - Moved routing, dispatching, and publishing to the root agent and removed the
   duplicate planning submission.
+- Added active-run fingerprinting and duplicate-run prevention.
+- Parallelized tester and result judge execution during verification.
+- Added a Python standard-library test fallback without increasing the
+  four-agent limit.
 
 ## 0.1.0-beta.0 — 2026-08-20
 

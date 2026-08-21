@@ -70,6 +70,15 @@ export async function detectVerificationCommands(
     });
   }
 
+  if (await exists(join(repositoryRoot, "tests"))) {
+    pushUnique(commands, {
+      capability: "test",
+      command: "python -m unittest discover -s tests",
+      source: "Python standard library fallback",
+      requiresApproval: false
+    });
+  }
+
   if (await exists(join(repositoryRoot, "pyproject.toml"))) {
     const pyproject = await readFile(join(repositoryRoot, "pyproject.toml"), "utf8");
     if (/\b(?:ruff|flake8)\b/i.test(pyproject)) {

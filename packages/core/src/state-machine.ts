@@ -58,6 +58,7 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   verification: [
     "awaiting_risk_approval",
     "result_review",
+    "awaiting_merge_approval",
     "awaiting_conflict_decision",
     "blocked",
     "cancelled",
@@ -209,10 +210,19 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
     },
     verification: {
       state: "verification",
-      roleId: "expert.tester",
-      action: "verify",
+      roleId: snapshot.verificationCompleted
+        ? "governance.judge"
+        : "expert.tester",
+      ...(!snapshot.verificationCompleted && !snapshot.resultReviewCompleted
+        ? { parallelRoles: ["expert.tester", "governance.judge"] }
+        : {}),
+      action: snapshot.verificationCompleted ? "review-result" : "verify",
       instructions:
-        "Run detected quality checks and submit evidence. Missing tests must be reported as unverified.",
+        !snapshot.verificationCompleted && !snapshot.resultReviewCompleted
+          ? "Run tester and result judge concurrently. Missing tests must be reported as unverified."
+          : snapshot.verificationCompleted
+            ? "Submit the independent result judgment."
+            : "Run detected quality checks and submit evidence.",
       requiresUserApproval: false
     },
     result_review: {

@@ -186,6 +186,7 @@ export interface RunSnapshot {
   id: string;
   schemaVersion: 2;
   task: string;
+  taskFingerprint: string;
   templateId: string;
   requestedMode: RunMode;
   mode: EffectiveRunMode;
@@ -195,6 +196,8 @@ export interface RunSnapshot {
   reworkTarget?: "planning" | "executing";
   planReworks: number;
   resultReworks: number;
+  verificationCompleted: boolean;
+  resultReviewCompleted: boolean;
   modelPolicy: ModelPolicy;
   templatePermissions: TeamTemplate["spec"]["permissions"];
   allowedGovernance: string[];
@@ -217,6 +220,7 @@ export interface RunSnapshot {
   updatedAt: string;
   completedAt?: string;
   failure?: string;
+  deadlineExceededAt?: string;
   readOnlyRecovery?: {
     reason: string;
     sourceSchemaVersion: unknown;
@@ -256,6 +260,7 @@ export interface RunEvent {
 export interface NextAction {
   state: RunState;
   roleId?: string;
+  parallelRoles?: string[];
   action: string;
   instructions: string;
   requiresUserApproval: boolean;

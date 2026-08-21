@@ -100,6 +100,18 @@ test("detects JavaScript verification commands", async () => {
   assert.ok(commands.some((command) => command.command === "npm run lint"));
 });
 
+test("detects a Python standard-library test fallback", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-python-commands-"));
+  await mkdir(join(directory, "tests"));
+  await writeFile(join(directory, "pyproject.toml"), "[project]\nname='fixture'\n");
+  const commands = await detectVerificationCommands(directory);
+  assert.ok(
+    commands.some(
+      (command) => command.command === "python -m unittest discover -s tests"
+    )
+  );
+});
+
 test("coordinator enforces the complete governance flow", async () => {
   const directory = await mkdtemp(join(tmpdir(), "thearchy-run-"));
   const artifacts = join(directory, "artifacts");
@@ -156,21 +168,40 @@ test("coordinator enforces the complete governance flow", async () => {
     { final: true }
   );
   assert.equal(snapshot.state, "verification");
+  const verificationAction = await coordinator.next(snapshot.id);
+  assert.deepEqual(verificationAction.parallelRoles, [
+    "expert.tester",
+    "governance.judge"
+  ]);
 
-  snapshot = await submitAs(
-    coordinator,
-    snapshot,
+  await coordinator.claim(
+    snapshot.id,
     "expert.tester",
     "tester-1",
-    await artifact(artifacts, "verification.md")
+    "gpt-5.6-luna",
+    "max"
   );
-  snapshot = await submitAs(
-    coordinator,
-    snapshot,
+  await coordinator.claim(
+    snapshot.id,
     "governance.judge",
     "judge-1",
-    await artifact(artifacts, "result-verdict.md")
+    "gpt-5.6-luna",
+    "max"
   );
+  snapshot = await coordinator.submit({
+    runId: snapshot.id,
+    roleId: "governance.judge",
+    instanceId: "judge-1",
+    artifactPath: await artifact(artifacts, "result-verdict.md")
+  });
+  assert.equal(snapshot.state, "verification");
+  snapshot = await coordinator.submit({
+    runId: snapshot.id,
+    roleId: "expert.tester",
+    instanceId: "tester-1",
+    artifactPath: await artifact(artifacts, "verification.md")
+  });
+  assert.equal(snapshot.state, "awaiting_merge_approval");
   snapshot = await coordinator.approve(snapshot.id, "merge");
   snapshot = await submitRoot(
     coordinator,
@@ -549,6 +580,43 @@ test("migrates v1 snapshots and preserves the original backup", async () => {
       "snapshot.schema-1.backup.json"
     )
   );
+});
+
+test("reuses an active matching run instead of creating a duplicate", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-deduplicate-"));
+  const template = await loadTemplate(
+    join(root, "templates", "feature-delivery.yaml")
+  );
+  const store = new RunStore(join(directory, "state"));
+  const coordinator = new Coordinator(store);
+  const first = await coordinator.start({
+    task: "Implement the same feature",
+    template,
+    requestedMode: "full",
+    cwd: directory
+  });
+  const resumed = await coordinator.start({
+    task: "  implement   the same FEATURE ",
+    template,
+    requestedMode: "full",
+    cwd: directory
+  });
+  assert.equal(resumed.id, first.id);
+  assert.ok(
+    (await store.events(first.id)).some(
+      (event) =>
+        event.type === "run.resumed" &&
+        event.data.reason === "duplicate-start-prevented"
+    )
+  );
+  const duplicate = await coordinator.start({
+    task: "Implement the same feature",
+    template,
+    requestedMode: "full",
+    cwd: directory,
+    allowDuplicate: true
+  });
+  assert.notEqual(duplicate.id, first.id);
 });
 
 test("persists, verifies, selects, and integrates workspace candidates", async () => {

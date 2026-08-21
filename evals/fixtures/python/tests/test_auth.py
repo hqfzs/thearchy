@@ -1,9 +1,15 @@
+import unittest
+
 from auth import normalize_username, verify_password
 
 
-def test_normalize_username():
-    assert normalize_username("alice") == "alice"
+class AuthenticationTests(unittest.TestCase):
+    def test_normalize_username(self):
+        self.assertEqual(normalize_username("alice"), "alice")
+
+    def test_verify_password(self):
+        self.assertTrue(verify_password("secret", "secret"))
 
 
-def test_verify_password():
-    assert verify_password("secret", "secret") is True
+if __name__ == "__main__":
+    unittest.main()

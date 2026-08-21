@@ -47,3 +47,10 @@ single-agent baseline. Before the three-repetition benchmark:
 2. resume an existing timed-out run instead of creating a new run;
 3. add a fast path from successful verification to final judgment;
 4. evaluate a ten-minute timeout without increasing the four-agent budget.
+
+## Follow-up optimization
+
+The coordinator now reuses matching active runs instead of restarting them,
+runs the tester and result judge in parallel, provides a standard-library
+Python test fallback, and uses a ten-minute full-mode timeout while preserving
+the four-agent limit.

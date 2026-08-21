@@ -17,7 +17,7 @@ export const DEFAULT_BUDGETS: Record<EffectiveRunMode, RunBudget> = {
   full: {
     maxAgents: 4,
     maxConcurrency: 2,
-    timeoutMinutes: 8,
+    timeoutMinutes: 10,
     maxPlanReworks: 2,
     maxResultReworks: 1,
     maxCompetingImplementations: 1,
