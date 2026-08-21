@@ -15,3 +15,9 @@
 Release gate: **FAIL**.
 
 Thearchy found all seeded defects, but independent post-run verification found one regression in repetition 1 feature-py: Python boolean `True` is accepted as `max_failures`. The zero-regression release gate therefore failed.
+
+## Follow-up
+
+The verification contract and Agent instructions were strengthened to require explicit type-confusion and boundary evidence. Three fresh `feature-py` Thearchy reruns completed with 45/45 boundary checks and zero regressions. See `BOUNDARY-RETEST-V020-2026-08-21.md`.
+
+This targeted retest resolves the discovered defect but does not replace a complete post-hardening rerun of all affected feature, bug-fix, and migration cases.

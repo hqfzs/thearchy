@@ -225,6 +225,7 @@ test("structured unverified results pause delivery", async () => {
       verifierInstanceId: "tester",
       implementerInstanceIds: ["builder"],
       commands: [],
+      boundaryChecks: [],
       findings: [],
       reviewedArtifactIds: ["artifact-4"],
       independent: true,

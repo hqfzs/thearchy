@@ -68,6 +68,19 @@ async function verificationArtifact(
               exitCode: status === "failed" ? 1 : 0,
               durationMs: 1
             })),
+      boundaryChecks:
+        status === "unverified"
+          ? []
+          : [
+              {
+                category: "type-confusion",
+                input: "coercible or subtype value",
+                expected: "explicitly validated",
+                observed:
+                  status === "failed" ? "boundary failed" : "boundary passed",
+                passed: status !== "failed"
+              }
+            ],
       findings:
         status === "failed"
           ? [{ severity: "high", summary: "verification failed" }]
