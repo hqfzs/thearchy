@@ -37,6 +37,7 @@ spec:
     - rollback-plan
     - compatibility-review
     - regression-test
+    - boundary-and-type-confusion-verification
     - user-merge-approval
   capabilities: [test, lint, build, typecheck]
   permissions:

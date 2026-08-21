@@ -35,6 +35,7 @@ spec:
   qualityGates:
     - reproducible-root-cause
     - regression-test
+    - boundary-and-type-confusion-verification
     - independent-result-review
     - user-merge-approval
   capabilities: [test, lint, typecheck]

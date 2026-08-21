@@ -189,6 +189,20 @@ export interface VerificationFinding {
   evidence?: string;
 }
 
+export interface VerificationBoundaryCheck {
+  category:
+    | "type-confusion"
+    | "nullability"
+    | "range"
+    | "compatibility"
+    | "collection";
+  input: string;
+  expected: string;
+  observed: string;
+  passed: boolean;
+  evidence?: string;
+}
+
 export interface VerificationResult {
   apiVersion: "thearchy.dev/verification/v1";
   status: VerificationStatus;
@@ -198,6 +212,7 @@ export interface VerificationResult {
   verifierInstanceId: string;
   implementerInstanceIds: string[];
   commands: VerificationCommandResult[];
+  boundaryChecks: VerificationBoundaryCheck[];
   findings: VerificationFinding[];
   reviewedArtifactIds: string[];
   independent: true;

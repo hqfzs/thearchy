@@ -43,6 +43,7 @@ spec:
   qualityGates:
     - independent-plan-review
     - automated-verification
+    - boundary-and-type-confusion-verification
     - independent-result-review
     - user-merge-approval
   capabilities: [test, lint, build, typecheck]

@@ -51,6 +51,15 @@ async function verificationArtifact(snapshot, instanceId) {
         exitCode: 0,
         durationMs: 1
       })),
+      boundaryChecks: [
+        {
+          category: "type-confusion",
+          input: "coercible or subtype value",
+          expected: "explicit validation",
+          observed: "rejected or safely handled",
+          passed: true
+        }
+      ],
       findings: [],
       reviewedArtifactIds,
       independent: true

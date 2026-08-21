@@ -135,6 +135,50 @@ export function validateVerificationResult(
         : {})
     };
   });
+  if (!Array.isArray(value.boundaryChecks)) {
+    throw new Error("Verification boundaryChecks must be an array");
+  }
+  const boundaryChecks = value.boundaryChecks.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error(`boundaryChecks[${index}] must be an object`);
+    }
+    const check = item as Record<string, unknown>;
+    if (
+      ![
+        "type-confusion",
+        "nullability",
+        "range",
+        "compatibility",
+        "collection"
+      ].includes(String(check.category))
+    ) {
+      throw new Error(`boundaryChecks[${index}].category is invalid`);
+    }
+    if (typeof check.passed !== "boolean") {
+      throw new Error(`boundaryChecks[${index}].passed must be boolean`);
+    }
+    return {
+      category: check.category as
+        | "type-confusion"
+        | "nullability"
+        | "range"
+        | "compatibility"
+        | "collection",
+      input: nonEmptyString(check.input, `boundaryChecks[${index}].input`),
+      expected: nonEmptyString(
+        check.expected,
+        `boundaryChecks[${index}].expected`
+      ),
+      observed: nonEmptyString(
+        check.observed,
+        `boundaryChecks[${index}].observed`
+      ),
+      passed: check.passed,
+      ...(typeof check.evidence === "string"
+        ? { evidence: check.evidence }
+        : {})
+    };
+  });
   if (!Array.isArray(value.findings)) {
     throw new Error("Verification findings must be an array");
   }
@@ -161,6 +205,7 @@ export function validateVerificationResult(
   let computedStatus: VerificationStatus = "passed";
   if (
     findings.some((finding) => finding.severity === "high") ||
+    boundaryChecks.some((check) => !check.passed) ||
     [...requiredCapabilities].some(
       (capability) =>
         commandByCapability.has(capability) &&
@@ -177,6 +222,17 @@ export function validateVerificationResult(
     )
   ) {
     computedStatus = "unverified";
+  }
+  if (
+    computedStatus === "passed" &&
+    ["feature-delivery", "bug-repair", "refactor-migration"].includes(
+      snapshot.templateId
+    ) &&
+    boundaryChecks.length === 0
+  ) {
+    throw new Error(
+      `Template ${snapshot.templateId} requires boundary verification evidence`
+    );
   }
   const unverifiedReason = value.unverifiedReason;
   if (
@@ -214,6 +270,7 @@ export function validateVerificationResult(
     verifierInstanceId,
     implementerInstanceIds,
     commands,
+    boundaryChecks,
     findings,
     reviewedArtifactIds,
     independent: true,

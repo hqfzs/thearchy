@@ -176,6 +176,15 @@ async function verificationArtifact(
         exitCode: 0,
         durationMs: 1
       })),
+      boundaryChecks: [
+        {
+          category: "type-confusion",
+          input: "coercible or subtype value",
+          expected: "explicit validation",
+          observed: "rejected or safely handled",
+          passed: true
+        }
+      ],
       findings: [],
       reviewedArtifactIds: snapshot.artifacts
         .filter((item) => item.final)
