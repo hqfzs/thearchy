@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   ALL_ROLES,
   Coordinator,
   RunStore,
+  createHostRuntimeReport,
   candidateDiffSummary,
   createWorktree,
   detectVerificationCommands,
@@ -17,6 +18,8 @@ import {
   renderRunReport,
   assertPathInside,
   type OperationType,
+  type CapabilityAvailability,
+  type RiskSignalType,
   type RunMode
 } from "@thearchy/core";
 import { ClaudeAdapter } from "@thearchy/adapter-claude";
@@ -42,7 +45,7 @@ import {
   removeTemplate
 } from "./templates.js";
 
-const VERSION = "0.2.0-beta.1";
+const VERSION = "0.2.0";
 
 function output(value: unknown, json = false): void {
   if (typeof value === "string" && !json) {
@@ -70,6 +73,9 @@ Usage:
   thearchy run release <run-id> --instance <instance-id>
   thearchy run heartbeat <run-id> --instance <instance-id>
   thearchy run recover-stale <run-id>
+  thearchy run recover <run-id> --from-backup <backup-id> --confirm <sha256>
+  thearchy run register-capabilities <run-id> --input <report.json>
+  thearchy run reassess <run-id> --signal <type> --summary <text>
   thearchy run decide <run-id> --request <decision-id> --choice <option-id>
   thearchy run request-operation <run-id> --type <type> --summary <text>
   thearchy run approve <run-id> --gate plan|merge
@@ -88,6 +94,8 @@ Usage:
   thearchy workspace list
   thearchy workspace cleanup --path <worktree-path> [--force]
   thearchy report export <run-id> [--output path]
+  thearchy host report --subagents <state> --parallel-agents <state>
+    --choice-prompt <state> [--output path]
   thearchy uninstall --target codex|claude|all
 `;
 }
@@ -168,6 +176,52 @@ async function handleRun(command: string | undefined, parsed: ParsedArgs): Promi
       if (!id) throw new Error("Missing run id");
       output(await service.recoverStale(id), true);
       return;
+    case "recover":
+      if (!id) throw new Error("Missing run id");
+      output(
+        await service.store.recoverFromBackup(
+          id,
+          optionString(parsed, "from-backup", true)!,
+          optionString(parsed, "confirm", true)!
+        ),
+        true
+      );
+      return;
+    case "register-capabilities": {
+      if (!id) throw new Error("Missing run id");
+      const inputPath = resolve(optionString(parsed, "input", true)!);
+      output(
+        await service.registerCapabilities(
+          id,
+          JSON.parse(await readFile(inputPath, "utf8"))
+        ),
+        true
+      );
+      return;
+    }
+    case "reassess": {
+      if (!id) throw new Error("Missing run id");
+      const signal = optionString(parsed, "signal", true)!;
+      const validSignals = [
+        "scope-expansion",
+        "sensitive-path",
+        "destructive-operation",
+        "migration",
+        "verification-gap"
+      ];
+      if (!validSignals.includes(signal)) {
+        throw new Error(`Unsupported risk signal: ${signal}`);
+      }
+      output(
+        await service.reassessRisk({
+          runId: id,
+          signal: signal as RiskSignalType,
+          summary: optionString(parsed, "summary", true)!
+        }),
+        true
+      );
+      return;
+    }
     case "decide":
       if (!id) throw new Error("Missing run id");
       output(
@@ -451,8 +505,16 @@ async function doctor(): Promise<void> {
       cwd: process.cwd(),
       git: baseline,
       hosts: {
-        codex: await codex.detect(),
-        claude: await claude.detect()
+        codex: {
+          platformSupport: await codex.detect(),
+          installation: await codexDesktopStatus(),
+          runtimeAvailability: "unknown"
+        },
+        claude: {
+          platformSupport: await claude.detect(),
+          runtimeAvailability: "unknown",
+          experimental: true
+        }
       },
       templates: (await allTemplates()).map((template) => template.metadata.id),
       verificationCommands: commands,
@@ -463,6 +525,38 @@ async function doctor(): Promise<void> {
     },
     true
   );
+}
+
+function capabilityAvailability(
+  parsed: ParsedArgs,
+  name: string
+): CapabilityAvailability {
+  const value = optionString(parsed, name, true)!;
+  if (!["available", "unavailable", "unknown"].includes(value)) {
+    throw new Error(
+      `--${name} must be available, unavailable, or unknown`
+    );
+  }
+  return value as CapabilityAvailability;
+}
+
+async function handleHost(
+  command: string | undefined,
+  parsed: ParsedArgs
+): Promise<void> {
+  if (command !== "report") throw new Error("Expected host report");
+  const report = createHostRuntimeReport({
+    subagents: capabilityAvailability(parsed, "subagents"),
+    parallelAgents: capabilityAvailability(parsed, "parallel-agents"),
+    choicePrompt: capabilityAvailability(parsed, "choice-prompt")
+  });
+  const destination = optionString(parsed, "output");
+  if (destination) {
+    const path = resolve(destination);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, `${JSON.stringify(report, null, 2)}\n`);
+  }
+  output(report, true);
 }
 
 async function main(): Promise<void> {
@@ -529,6 +623,9 @@ async function main(): Promise<void> {
     }
     case "run":
       await handleRun(command, parsed);
+      return;
+    case "host":
+      await handleHost(command, parsed);
       return;
     case "template":
       await handleTemplate(command, parsed);

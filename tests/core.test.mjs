@@ -9,7 +9,9 @@ import {
   assessRisk,
   assertPathInside,
   assertRemoteTemplateFile,
+  createHostRuntimeReport,
   detectVerificationCommands,
+  inspectRiskContext,
   isSecretPath,
   loadTemplate,
   nextAction
@@ -23,6 +25,62 @@ async function artifact(directory, name, content = name) {
   return path;
 }
 
+async function verificationArtifact(
+  directory,
+  name,
+  snapshot,
+  verifierInstanceId,
+  status = "passed"
+) {
+  const implementerInstanceIds = snapshot.agentInstances
+    .filter(
+      (instance) =>
+        instance.roleId.startsWith("expert.") &&
+        instance.roleId !== "expert.tester"
+    )
+    .map((instance) => instance.instanceId);
+  const reviewedArtifactIds = snapshot.artifacts
+    .filter(
+      (item) =>
+        item.final ||
+        (item.roleId.startsWith("expert.") &&
+          item.roleId !== "expert.tester")
+    )
+    .map((item) => item.id);
+  const required = snapshot.requiredVerification;
+  return artifact(
+    directory,
+    name,
+    JSON.stringify({
+      apiVersion: "thearchy.dev/verification/v1",
+      status,
+      attemptStatus: "submitted",
+      attempt: snapshot.verificationResults.length + 1,
+      createdAt: new Date().toISOString(),
+      verifierInstanceId,
+      implementerInstanceIds,
+      commands:
+        status === "unverified"
+          ? []
+          : (required.length > 0 ? required : ["test"]).map((capability) => ({
+              capability,
+              command: capability === "test" ? "npm test" : `npm run ${capability}`,
+              exitCode: status === "failed" ? 1 : 0,
+              durationMs: 1
+            })),
+      findings:
+        status === "failed"
+          ? [{ severity: "high", summary: "verification failed" }]
+          : [],
+      reviewedArtifactIds,
+      independent: true,
+      ...(status === "unverified"
+        ? { unverifiedReason: "no-verification-command" }
+        : {})
+    })
+  );
+}
+
 async function submitAs(
   coordinator,
   snapshot,
@@ -31,6 +89,16 @@ async function submitAs(
   artifactPath,
   options = {}
 ) {
+  if (!snapshot.runtimeCapabilities) {
+    await coordinator.registerCapabilities(
+      snapshot.id,
+      createHostRuntimeReport({
+        subagents: "available",
+        parallelAgents: "available",
+        choicePrompt: "available"
+      })
+    );
+  }
   await coordinator.claim(
     snapshot.id,
     roleId,
@@ -78,6 +146,54 @@ test("risk classifier chooses full mode for high-risk work", () => {
   );
   assert.equal(assessment.effectiveMode, "full");
   assert.equal(assessment.level, "high");
+  assert.equal(assessment.routing, "forced-full");
+  assert.equal(assessment.requiresModeApproval, false);
+
+  const forced = assessRisk(
+    "Delete production database credentials",
+    "light"
+  );
+  assert.equal(forced.effectiveMode, "full");
+  assert.equal(forced.routing, "forced-full");
+});
+
+test("risk classifier incorporates repository and verification context", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-risk-context-"));
+  await mkdir(join(directory, "tests"));
+  await writeFile(
+    join(directory, "package.json"),
+    JSON.stringify({ scripts: { test: "node --test" } })
+  );
+  const cleanContext = inspectRiskContext(directory, "feature-delivery", {
+    available: false,
+    dirty: false,
+    dirtyFiles: []
+  });
+  assert.deepEqual(cleanContext.projectKinds, ["javascript-typescript"]);
+  assert.equal(cleanContext.hasVerification, true);
+  assert.equal(
+    assessRisk("Update a formatting helper", "auto", cleanContext).routing,
+    "automatic-light"
+  );
+
+  const changedContext = inspectRiskContext(directory, "feature-delivery", {
+    available: true,
+    dirty: true,
+    dirtyFiles: [
+      "src/auth/session.ts",
+      "src/ui.ts",
+      "tests/auth.test.ts",
+      "package.json"
+    ]
+  });
+  const contextual = assessRisk(
+    "Update a formatting helper",
+    "auto",
+    changedContext
+  );
+  assert.equal(contextual.level, "medium");
+  assert.equal(contextual.routing, "confirm");
+  assert.ok(contextual.reasons.includes("sensitive paths already modified"));
 });
 
 test("security helpers reject escaped and secret paths", () => {
@@ -199,7 +315,12 @@ test("coordinator enforces the complete governance flow", async () => {
     runId: snapshot.id,
     roleId: "expert.tester",
     instanceId: "tester-1",
-    artifactPath: await artifact(artifacts, "verification.md")
+    artifactPath: await verificationArtifact(
+      artifacts,
+      "verification.json",
+      snapshot,
+      "tester-1"
+    )
   });
   assert.equal(snapshot.state, "awaiting_merge_approval");
   snapshot = await coordinator.approve(snapshot.id, "merge");
@@ -252,7 +373,7 @@ test("rejects plans and stops after the configured rework budget", async () => {
     await artifact(files, "p2.md")
   );
 
-  for (let count = 0; count < 2; count += 1) {
+  for (let count = 0; count < snapshot.budget.maxPlanReworks; count += 1) {
     snapshot = await coordinator.reject(snapshot.id, "plan", "missing evidence");
     assert.equal(snapshot.state, "rework");
     snapshot = await coordinator.resume(snapshot.id);
@@ -393,7 +514,7 @@ test("enforces template specialists, concurrency, and competing implementation b
   );
 });
 
-test("auto mode creates a decision request while explicit mode does not", async () => {
+test("auto mode only asks for medium risk and safely routes low and high risk", async () => {
   const directory = await mkdtemp(join(tmpdir(), "thearchy-mode-"));
   const artifacts = join(directory, "artifacts");
   await mkdir(artifacts);
@@ -401,48 +522,170 @@ test("auto mode creates a decision request while explicit mode does not", async 
     join(root, "templates", "feature-delivery.yaml")
   );
   const coordinator = new Coordinator(new RunStore(join(directory, "state")));
-  let autoRun = await coordinator.start({
-    task: "Implement authentication and database migration",
+  let mediumRun = await coordinator.start({
+    task: "Implement authentication support",
     template,
     requestedMode: "auto",
     cwd: directory
   });
-  autoRun = await submitRoot(
+  mediumRun = await submitRoot(
     coordinator,
-    autoRun,
+    mediumRun,
     "governance.router",
-    await artifact(artifacts, "auto-classification.md")
+    await artifact(artifacts, "medium-classification.md")
   );
-  assert.equal(autoRun.state, "awaiting_mode_approval");
-  const action = await coordinator.next(autoRun.id);
+  assert.equal(mediumRun.state, "awaiting_mode_approval");
+  const action = await coordinator.next(mediumRun.id);
   assert.equal(action.interaction?.kind, "mode");
   const modeDecision = action.interaction;
   assert.ok(modeDecision);
-  autoRun = await coordinator.decide(
-    autoRun.id,
+  mediumRun = await coordinator.decide(
+    mediumRun.id,
     modeDecision.id,
     "full"
   );
-  assert.equal(autoRun.state, "classified");
-  assert.equal(autoRun.mode, "full");
+  assert.equal(mediumRun.state, "classified");
+  assert.equal(mediumRun.mode, "full");
 
-  let explicitRun = await coordinator.start({
+  let lowRun = await coordinator.start({
     task: "Small documentation change",
     template,
-    requestedMode: "light",
-    cwd: directory
+    requestedMode: "auto",
+    cwd: directory,
+    allowDuplicate: true
   });
-  explicitRun = await submitRoot(
+  lowRun = await submitRoot(
     coordinator,
-    explicitRun,
+    lowRun,
     "governance.router",
-    await artifact(artifacts, "explicit-classification.md")
+    await artifact(artifacts, "low-classification.md")
   );
-  assert.equal(explicitRun.state, "classified");
+  assert.equal(lowRun.state, "classified");
+  assert.equal(lowRun.mode, "light");
+  assert.equal(lowRun.risk.routing, "automatic-light");
   assert.equal(
-    explicitRun.decisions.some((decision) => decision.kind === "mode"),
+    lowRun.decisions.some((decision) => decision.kind === "mode"),
     false
   );
+
+  let highRun = await coordinator.start({
+    task: "Delete production database credentials",
+    template,
+    requestedMode: "auto",
+    cwd: directory,
+    allowDuplicate: true
+  });
+  highRun = await submitRoot(
+    coordinator,
+    highRun,
+    "governance.router",
+    await artifact(artifacts, "high-classification.md")
+  );
+  assert.equal(highRun.state, "classified");
+  assert.equal(highRun.mode, "full");
+  assert.equal(highRun.risk.routing, "forced-full");
+  assert.equal(
+    highRun.decisions.some((decision) => decision.kind === "mode"),
+    false
+  );
+
+  const explicitHigh = await coordinator.start({
+    task: "Delete production database credentials",
+    template,
+    requestedMode: "light",
+    cwd: directory,
+    allowDuplicate: true
+  });
+  assert.equal(explicitHigh.mode, "full");
+  assert.equal(explicitHigh.risk.routing, "forced-full");
+});
+
+test("light mode uses one expert and one independent combined verifier", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-light-"));
+  const artifacts = join(directory, "artifacts");
+  await mkdir(artifacts);
+  const template = await loadTemplate(
+    join(root, "templates", "feature-delivery.yaml")
+  );
+  const coordinator = new Coordinator(new RunStore(join(directory, "state")));
+  let snapshot = await coordinator.start({
+    task: "Add a small formatting helper",
+    template,
+    requestedMode: "auto",
+    cwd: directory
+  });
+  assert.equal(snapshot.mode, "light");
+  assert.equal(snapshot.budget.maxAgents, 2);
+  assert.equal(snapshot.budget.maxConcurrency, 1);
+
+  snapshot = await submitRoot(
+    coordinator,
+    snapshot,
+    "governance.router",
+    await artifact(artifacts, "light-classification.md")
+  );
+  assert.equal(snapshot.state, "classified");
+  assert.equal((await coordinator.next(snapshot.id)).modelPolicy, undefined);
+
+  snapshot = await submitRoot(
+    coordinator,
+    snapshot,
+    "governance.planner",
+    await artifact(artifacts, "light-plan.md")
+  );
+  assert.equal(snapshot.state, "awaiting_plan_approval");
+  assert.equal(
+    snapshot.decisions.find((decision) => decision.kind === "plan")?.context
+      .independentlyReviewed,
+    false
+  );
+
+  snapshot = await coordinator.approve(snapshot.id, "plan");
+  snapshot = await submitRoot(
+    coordinator,
+    snapshot,
+    "governance.dispatcher",
+    await artifact(artifacts, "light-dispatch.md")
+  );
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "expert.builder",
+    "light-builder",
+    await artifact(artifacts, "light-implementation.md"),
+    { final: true }
+  );
+  const verification = await coordinator.next(snapshot.id);
+  assert.equal(verification.action, "verify-and-review");
+  assert.equal(verification.roleId, "expert.tester");
+  assert.equal(verification.parallelRoles, undefined);
+  await assert.rejects(
+    coordinator.claim(
+      snapshot.id,
+      "governance.judge",
+      "light-judge",
+      "gpt-5.6-luna",
+      "max"
+    ),
+    /cannot submit/
+  );
+
+  snapshot = await submitAs(
+    coordinator,
+    snapshot,
+    "expert.tester",
+    "light-verifier",
+    await verificationArtifact(
+      artifacts,
+      "light-verification.json",
+      snapshot,
+      "light-verifier"
+    )
+  );
+  assert.equal(snapshot.state, "awaiting_merge_approval");
+  assert.equal(snapshot.verificationCompleted, true);
+  assert.equal(snapshot.resultReviewCompleted, true);
+  assert.equal(snapshot.agentInstances.length, 2);
 });
 
 test("requires Luna max and recovers expired leases through an inquiry decision", async () => {
@@ -458,6 +701,14 @@ test("requires Luna max and recovers expired leases through an inquiry decision"
     requestedMode: "full",
     cwd: directory
   });
+  await coordinator.registerCapabilities(
+    snapshot.id,
+    createHostRuntimeReport({
+      subagents: "available",
+      parallelAgents: "available",
+      choicePrompt: "available"
+    })
+  );
   await assert.rejects(
     coordinator.claim(
       snapshot.id,
@@ -568,7 +819,7 @@ test("migrates v1 snapshots and preserves the original backup", async () => {
   await writeFile(snapshotPath, JSON.stringify(legacy, null, 2));
 
   const migrated = await store.load(created.id);
-  assert.equal(migrated.schemaVersion, 2);
+  assert.equal(migrated.schemaVersion, 3);
   assert.equal(migrated.modelPolicy.model, "gpt-5.6-luna");
   assert.deepEqual(migrated.decisions, []);
   await access(
@@ -666,7 +917,12 @@ test("persists, verifies, selects, and integrates workspace candidates", async (
     snapshot,
     "expert.tester",
     "candidate-tester",
-    await artifact(artifacts, "candidate-tests.md")
+    await verificationArtifact(
+      artifacts,
+      "candidate-tests.json",
+      snapshot,
+      "candidate-tester"
+    )
   );
   snapshot = await submitAs(
     coordinator,

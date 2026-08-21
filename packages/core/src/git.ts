@@ -7,8 +7,29 @@ export interface GitBaseline {
   repositoryRoot?: string;
   commit?: string;
   dirty: boolean;
+  dirtyFiles: string[];
   available: boolean;
   warning?: string;
+}
+
+export function parsePorcelainV1Z(output: string): string[] {
+  const fields = output.split("\0");
+  const paths: string[] = [];
+  for (let index = 0; index < fields.length; index += 1) {
+    const entry = fields[index];
+    if (!entry) continue;
+    if (entry.length < 4 || entry[2] !== " ") {
+      throw new Error("Invalid git porcelain v1 -z entry");
+    }
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+    if (path) paths.push(path);
+    if ((status.includes("R") || status.includes("C")) && fields[index + 1]) {
+      paths.push(fields[index + 1]!);
+      index += 1;
+    }
+  }
+  return [...new Set(paths)];
 }
 
 function git(args: string[], cwd: string): string {
@@ -23,15 +44,38 @@ function git(args: string[], cwd: string): string {
   return result.stdout.trim();
 }
 
+function gitRaw(args: string[], cwd: string): string {
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    windowsHide: true
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr.trim() || `git ${args.join(" ")} failed`);
+  }
+  return result.stdout;
+}
+
 export function inspectGitBaseline(cwd: string): GitBaseline {
   try {
     const repositoryRoot = git(["rev-parse", "--show-toplevel"], cwd);
     const commit = git(["rev-parse", "HEAD"], repositoryRoot);
-    const dirty = git(["status", "--porcelain"], repositoryRoot).length > 0;
-    return { repositoryRoot, commit, dirty, available: true };
+    const status = gitRaw(
+      ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+      repositoryRoot
+    );
+    const dirtyFiles = parsePorcelainV1Z(status);
+    return {
+      repositoryRoot,
+      commit,
+      dirty: dirtyFiles.length > 0,
+      dirtyFiles,
+      available: true
+    };
   } catch (error) {
     return {
       dirty: false,
+      dirtyFiles: [],
       available: false,
       warning: error instanceof Error ? error.message : String(error)
     };
@@ -143,7 +187,12 @@ export function mergeCandidate(
   repositoryRoot: string,
   branch: string
 ): MergeCandidateResult {
-  if (git(["status", "--porcelain"], repositoryRoot)) {
+  if (
+    gitRaw(
+      ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+      repositoryRoot
+    )
+  ) {
     throw new Error("Repository must be clean before candidate integration");
   }
   const result = spawnSync(

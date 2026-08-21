@@ -2,7 +2,7 @@
 
 Thearchy is a local deterministic multi-agent quality governance layer for Codex and Claude Code. It adds explicit planning, independent review, structured execution, verification, and merge approval without providing or requiring another model service.
 
-Current prerelease: `0.2.0-beta.1`.
+Current stable release: `0.2.0`, supporting Windows and Codex Desktop.
 
 ```bash
 npm install

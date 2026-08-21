@@ -1,6 +1,6 @@
 {
   "name": "thearchy-monorepo",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0",
   "private": true,
   "description": "神治（Thearchy）— local multi-agent quality governance for coding agents.",
   "homepage": "https://github.com/hqfzs/thearchy#readme",
@@ -19,12 +19,14 @@
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "build": "tsc -b && node scripts/copy-assets.mjs && node scripts/bundle-cli.mjs",
-    "test": "npm run build && npm run validate:evals && node --test tests/core.test.mjs tests/adapters.test.mjs tests/cli.test.mjs tests/git.test.mjs",
+    "test": "npm run build && npm run validate:evals && node --test tests/core.test.mjs tests/stabilization.test.mjs tests/store-recovery.test.mjs tests/adapters.test.mjs tests/cli.test.mjs tests/git.test.mjs",
     "typecheck": "tsc -b --pretty false",
     "validate:templates": "npm run build && node packages/cli/dist/index.js template validate templates",
     "validate:evals": "node scripts/validate-evals.mjs",
     "validate:prebenchmark": "node scripts/validate-eval-results.mjs",
     "benchmark:aggregate": "node scripts/aggregate-full-benchmark.mjs",
+    "benchmark:routing-light": "npm run build && node scripts/benchmark-routing-light.mjs",
+    "validate:risk-cases": "npm run build && node scripts/validate-risk-cases.mjs",
     "validate:plugin": "npm run build && node scripts/validate-generated-plugin.mjs",
     "test:stability": "npm run build && node scripts/stability-smoke.mjs",
     "test:package": "npm run build && node scripts/package-smoke.mjs",

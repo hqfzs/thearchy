@@ -6,10 +6,10 @@ import type {
 
 export const DEFAULT_BUDGETS: Record<EffectiveRunMode, RunBudget> = {
   light: {
-    maxAgents: 3,
-    maxConcurrency: 2,
-    timeoutMinutes: 20,
-    maxPlanReworks: 2,
+    maxAgents: 2,
+    maxConcurrency: 1,
+    timeoutMinutes: 10,
+    maxPlanReworks: 1,
     maxResultReworks: 1,
     maxCompetingImplementations: 1,
     leaseTimeoutMinutes: 5

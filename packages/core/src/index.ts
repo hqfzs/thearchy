@@ -1,4 +1,5 @@
 export * from "./budget.js";
+export * from "./capabilities.js";
 export * from "./commands.js";
 export * from "./coordinator.js";
 export * from "./git.js";
@@ -12,3 +13,4 @@ export * from "./state-machine.js";
 export * from "./store.js";
 export * from "./template.js";
 export * from "./types.js";
+export * from "./verification.js";

@@ -1,11 +1,11 @@
 {
   "name": "@thearchy/adapter-claude",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@thearchy/core": "0.2.0-beta.1"
+    "@thearchy/core": "0.2.0"
   }
 }

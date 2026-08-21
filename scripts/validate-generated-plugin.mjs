@@ -16,7 +16,7 @@ const manifest = JSON.parse(
   await readFile(join(output, ".codex-plugin", "plugin.json"), "utf8")
 );
 if (manifest.name !== "thearchy") throw new Error("Invalid plugin name");
-if (!/^\d+\.\d+\.\d+-beta\.\d+\+codex\.local-\d{14}$/.test(manifest.version)) {
+if (!/^\d+\.\d+\.\d+\+codex\.local-\d{14}$/.test(manifest.version)) {
   throw new Error(`Invalid plugin version: ${manifest.version}`);
 }
 for (const key of ["composerIcon", "logo", "logoDark"]) {

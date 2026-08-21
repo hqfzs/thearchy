@@ -2,13 +2,18 @@
 
 神治是一套运行在本地 AI 编码工具中的多 Agent 质量治理系统。它不提供新的模型服务，而是在 Codex 与 Claude Code之上加入确定性的规划、裁决、执行、验证和交付状态机。
 
-> 当前版本：`0.2.0-beta.1`。这是可运行的 Beta 版本，不应直接用于未经人工确认的生产发布。
+> 当前版本：`0.2.0`。正式支持 Windows + Codex Desktop；其他适配器保留为实验性能力。
+>
+> 首个正式版本仅承诺支持 **Windows + Codex Desktop**。Claude Code、macOS 与 Linux 适配代码继续保留，但在正式版前作为实验性能力，不计入稳定性承诺。
 
 ## 核心特性
 
 - 固定机器角色 ID 与希腊神话显示名称。
 - 本地 JSONL 审计日志和不可跳过的状态机。
 - 轻量、完整两种预算模式。
+- `auto` 模式按风险自适应分流：低风险自动轻量，中风险询问，高风险强制完整。
+- 风险分类同时参考任务描述、模板类型、Git 工作区状态、敏感路径和验证能力。
+- 轻量模式默认仅使用2个顺序执行的子 Agent：领域专家与独立验证者。
 - 完整模式默认采用4个子 Agent、并发2个、10分钟预算。
 - 主 Agent直接负责分类、派工和交付，减少治理开销。
 - 相同仓库、模板和任务会复用活动运行，避免超时后重复启动。
@@ -107,6 +112,12 @@ thearchy run decide <run-id> \
   --choice <option-id>
 ```
 
+`auto` 模式不会机械地询问每个任务：
+
+- 低风险：直接进入轻量模式；
+- 中风险：询问使用轻量或完整模式；
+- 高风险：直接进入完整模式，即使显式请求轻量模式也不会降级安全边界。
+
 创建子 Agent 前必须登记模型和租约：
 
 ```bash
@@ -159,7 +170,7 @@ thearchy run submit <run-id> \
 thearchy run heartbeat <run-id> --instance builder-1
 ```
 
-验证阶段会并行运行测试 Agent 和复用的裁决 Agent，以缩短最终质量门耗时。
+轻量模式由一个领域专家执行，再由一个独立测试 Agent 合并完成验证与成果审查；不创建单独的方案裁决 Agent。完整模式的验证阶段会并行运行测试 Agent 和复用的裁决 Agent。
 
 高风险操作必须先发起询问：
 
@@ -213,9 +224,11 @@ thearchy run resume <run-id>
 
 - [架构](docs/ARCHITECTURE.md)
 - [Codex 桌面端安装](docs/CODEX-DESKTOP.md)
+- [正式版支持范围](docs/SUPPORT.md)
 - [模板规范](docs/TEMPLATE-SPEC.md)
 - [威胁模型](docs/THREAT-MODEL.md)
 - [质量评测](evals/README.md)
+- [风险分流与轻量模式基准](docs/ROUTING-LIGHT-BENCHMARK-2026-08-21.md)
 - [English quick start](README.en.md)
 
 ## 许可证

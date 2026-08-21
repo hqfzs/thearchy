@@ -25,7 +25,8 @@ jobs:
       - run: npm run pack:check
 
   release-gates:
-    runs-on: ubuntu-latest
+    # The first stable release is supported on Windows + Codex Desktop.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,4 +36,5 @@ jobs:
       - run: npm ci
       - run: npm run validate:plugin
       - run: npm run test:stability
+      - run: npm run benchmark:routing-light
       - run: npm run test:package
