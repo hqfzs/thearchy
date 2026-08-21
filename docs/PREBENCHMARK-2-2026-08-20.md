@@ -54,3 +54,6 @@ The coordinator now reuses matching active runs instead of restarting them,
 runs the tester and result judge in parallel, provides a standard-library
 Python test fallback, and uses a ten-minute full-mode timeout while preserving
 the four-agent limit.
+
+The previously failing case passed the targeted regression on August 21, 2026:
+[REGRESSION-2026-08-21.md](REGRESSION-2026-08-21.md).
