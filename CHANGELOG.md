@@ -17,6 +17,8 @@
 - Parallelized tester and result judge execution during verification.
 - Added a Python standard-library test fallback without increasing the
   four-agent limit.
+- Passed the full 60-run benchmark: 30/30 completed, 24/24 seeded defects
+  found, 30/30 tests passed, and zero regressions for Thearchy.
 
 ## 0.1.0-beta.0 — 2026-08-20
 
