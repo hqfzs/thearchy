@@ -9,10 +9,8 @@ export function renderRunReport(
     (artifact) => artifact.roleId === "expert.tester"
   );
   const status =
-    snapshot.state === "completed"
-      ? verificationArtifacts.length > 0
-        ? "completed"
-        : "unverified"
+    snapshot.state === "completed" && snapshot.verificationStatus !== "passed"
+      ? "unverified"
       : snapshot.state;
 
   const lines = [
@@ -21,7 +19,10 @@ export function renderRunReport(
     `- 状态：${status}`,
     `- 模板：${snapshot.templateId}`,
     `- 模式：${snapshot.mode}`,
-    `- 风险：${snapshot.risk.level} (${snapshot.risk.score})`,
+    `- 风险：${snapshot.risk.level} (${snapshot.risk.totalScore})`,
+    `- 风险维度：impact=${snapshot.risk.impactScore}, complexity=${snapshot.risk.complexityScore}, uncertainty=${snapshot.risk.uncertaintyScore}, operational=${snapshot.risk.operationalScore}`,
+    `- 分流：${snapshot.risk.routing}`,
+    `- 验证状态：${snapshot.verificationStatus}`,
     `- 基线提交：${snapshot.baselineCommit ?? "不可用"}`,
     `- 工作区含未提交修改：${snapshot.dirtyWorkingTree ? "是" : "否"}`,
     `- 开始：${snapshot.startedAt}`,
@@ -29,6 +30,7 @@ export function renderRunReport(
     `- 子 Agent 模型：${snapshot.modelPolicy.model} / ${snapshot.modelPolicy.reasoningEffort}`,
     `- Agent 预算：${snapshot.agentInstances.length}/${snapshot.budget.maxAgents}`,
     `- 当前并发：${snapshot.activeAgents.length}/${snapshot.budget.maxConcurrency}`,
+    `- 运行时能力：${snapshot.runtimeCapabilities ? `${snapshot.runtimeCapabilities.host}/${snapshot.runtimeCapabilities.platform} (${snapshot.runtimeCapabilities.reportHash})` : "未登记"}`,
     "",
     "## Agent 实例",
     "",
@@ -68,7 +70,10 @@ export function renderRunReport(
     )
   ];
 
-  if (verificationArtifacts.length === 0) {
+  if (
+    verificationArtifacts.length === 0 ||
+    snapshot.verificationStatus !== "passed"
+  ) {
     lines.push(
       "",
       "> 自动化验证证据缺失。本次运行不得标记为“质量通过”。"

@@ -101,7 +101,7 @@ export class ClaudeAdapter implements HostAdapter {
       JSON.stringify(
         {
           name: "thearchy",
-          version: "0.2.0-beta.1",
+          version: "0.2.0",
           description:
             "Deterministic multi-agent quality governance for Claude Code.",
           author: { name: "Thearchy Contributors" },

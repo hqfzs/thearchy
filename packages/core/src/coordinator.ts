@@ -1,6 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { assessRisk } from "./risk.js";
+import { validateHostRuntimeReport } from "./capabilities.js";
+import { detectVerificationCommands } from "./commands.js";
+import {
+  applyRiskSignal,
+  assessRisk,
+  inspectRiskContext
+} from "./risk.js";
 import { resolveBudget } from "./budget.js";
 import { inspectGitBaseline } from "./git.js";
 import { DEFAULT_MODEL_POLICY } from "./policy.js";
@@ -8,6 +15,7 @@ import { ROLE_BY_ID } from "./roles.js";
 import { assertRunActive, assertTransition, nextAction } from "./state-machine.js";
 import { nextEvent, RunStore } from "./store.js";
 import { sha256File } from "./security.js";
+import { validateVerificationResult } from "./verification.js";
 import type {
   ApprovalGate,
   ArtifactRecord,
@@ -21,6 +29,7 @@ import type {
   RejectionGate,
   RunBudget,
   RunMode,
+  RiskSignalType,
   RunSnapshot,
   RunState,
   TeamTemplate,
@@ -82,12 +91,31 @@ export interface RequestOperationInput {
   actor?: string;
 }
 
+export interface ReassessRiskInput {
+  runId: string;
+  signal: RiskSignalType;
+  summary: string;
+  actor?: string;
+}
+
 export class Coordinator {
   constructor(readonly store: RunStore) {}
 
   async start(input: StartRunInput): Promise<RunSnapshot> {
-    const risk = assessRisk(input.task, input.requestedMode);
     const baseline = inspectGitBaseline(input.cwd);
+    const verificationCommands = baseline.repositoryRoot
+      ? await detectVerificationCommands(baseline.repositoryRoot)
+      : [];
+    const risk = assessRisk(
+      input.task,
+      input.requestedMode,
+      inspectRiskContext(
+        input.cwd,
+        input.template.metadata.id,
+        baseline,
+        verificationCommands
+      )
+    );
     const fingerprint = taskFingerprint(input.task);
     if (!input.allowDuplicate) {
       const existing = await this.store.findActiveRun({
@@ -121,7 +149,7 @@ export class Coordinator {
     const now = new Date().toISOString();
     const snapshot: RunSnapshot = {
       id,
-      schemaVersion: 2,
+      schemaVersion: 3,
       task: input.task,
       taskFingerprint: fingerprint,
       templateId: input.template.metadata.id,
@@ -132,8 +160,12 @@ export class Coordinator {
       planReworks: 0,
       resultReworks: 0,
       verificationCompleted: false,
+      verificationAttemptStatus: "not_started",
+      verificationStatus: "unverified",
+      verificationResults: [],
       resultReviewCompleted: false,
       modelPolicy: DEFAULT_MODEL_POLICY,
+      requiredVerification: [...input.template.spec.verification.required],
       templatePermissions: { ...input.template.spec.permissions },
       allowedGovernance: [...input.template.spec.governance],
       allowedSpecialists: [...input.template.spec.specialists],
@@ -175,6 +207,39 @@ export class Coordinator {
     return this.store.load(id);
   }
 
+  async registerCapabilities(
+    id: string,
+    input: unknown,
+    actor = "main"
+  ): Promise<RunSnapshot> {
+    const report = validateHostRuntimeReport(input);
+    return this.store.update(id, (snapshot, events) => {
+      assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
+      if (
+        snapshot.runtimeCapabilities &&
+        snapshot.runtimeCapabilities.reportHash !== report.reportHash &&
+        snapshot.activeAgents.length > 0
+      ) {
+        throw new Error(
+          "Runtime capabilities cannot change while child agents are active"
+        );
+      }
+      if (snapshot.runtimeCapabilities?.reportHash === report.reportHash) {
+        return [];
+      }
+      snapshot.runtimeCapabilities = report;
+      snapshot.runtimeCapabilitiesRegisteredAt = new Date().toISOString();
+      return nextEvent(events, id, "host.capabilities.recorded", actor, {
+        host: report.host,
+        platform: report.platform,
+        checkedAt: report.checkedAt,
+        capabilities: report.capabilities,
+        reportHash: report.reportHash
+      });
+    });
+  }
+
   async next(id: string): Promise<NextAction> {
     let snapshot = await this.store.load(id);
     this.ensureCoordinationFields(snapshot);
@@ -205,6 +270,7 @@ export class Coordinator {
       assertRunActive(snapshot);
       this.ensureCoordinationFields(snapshot);
       this.assertRoleAllowed(snapshot, roleId);
+      this.assertRuntimeCapabilities(snapshot);
       if (
         model !== snapshot.modelPolicy.model ||
         reasoningEffort !== snapshot.modelPolicy.reasoningEffort
@@ -495,6 +561,92 @@ export class Coordinator {
     });
   }
 
+  async reassessRisk(input: ReassessRiskInput): Promise<RunSnapshot> {
+    if (!input.summary.trim()) throw new Error("Risk summary is required");
+    return this.store.update(input.runId, (snapshot, events) => {
+      assertRunActive(snapshot);
+      this.ensureCoordinationFields(snapshot);
+      if (
+        ![
+          "classified",
+          "planning",
+          "plan_review",
+          "awaiting_plan_approval",
+          "dispatching",
+          "executing",
+          "verification"
+        ].includes(snapshot.state)
+      ) {
+        throw new Error(`Risk cannot be reassessed while run is ${snapshot.state}`);
+      }
+      if (this.pendingDecision(snapshot)) {
+        throw new Error("Resolve the pending decision before reassessing risk");
+      }
+      if (snapshot.activeAgents.length > 0) {
+        throw new Error(
+          "Release active child agents before reassessing runtime risk"
+        );
+      }
+      const previousRisk = snapshot.risk;
+      snapshot.risk = applyRiskSignal(snapshot.risk, input.signal);
+      const reassessed = nextEvent(
+        events,
+        snapshot.id,
+        "risk.reassessed",
+        input.actor ?? "main",
+        {
+          signal: input.signal,
+          summary: input.summary,
+          previousRisk,
+          risk: snapshot.risk
+        }
+      );
+      if (snapshot.mode !== "light" || snapshot.risk.level !== "high") {
+        return reassessed;
+      }
+      const returnState = snapshot.state;
+      const decision = this.createDecision(
+        snapshot,
+        "escalation",
+        "轻量运行发现高风险，是否升级为完整模式？",
+        [
+          {
+            id: "upgrade-full",
+            label: "升级完整模式",
+            description: "保留现有产物，返回规划阶段补充完整审查。",
+            recommended: true
+          },
+          {
+            id: "cancel",
+            label: "取消运行",
+            description: "保留现场并停止，不继续以轻量模式执行。",
+            recommended: false
+          }
+        ],
+        { signal: input.signal, summary: input.summary, returnState }
+      );
+      transition(snapshot, "awaiting_escalation_decision");
+      const requested = nextEvent(
+        [...events, reassessed],
+        snapshot.id,
+        "mode.escalation.requested",
+        "system",
+        { decision }
+      );
+      return [
+        reassessed,
+        requested,
+        nextEvent(
+          [...events, reassessed, requested],
+          snapshot.id,
+          "run.transitioned",
+          "system",
+          { from: returnState, to: snapshot.state }
+        )
+      ];
+    });
+  }
+
   async decide(
     id: string,
     requestId: string,
@@ -539,6 +691,18 @@ export class Coordinator {
     }
     const artifactPath = resolve(input.artifactPath);
     const sha256 = await sha256File(artifactPath);
+    let verificationInput: unknown;
+    if (input.roleId === "expert.tester") {
+      try {
+        verificationInput = JSON.parse(await readFile(artifactPath, "utf8"));
+      } catch (error) {
+        throw new Error(
+          `Tester artifact must be valid JSON: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }
 
     return this.store.update(input.runId, (snapshot, events) => {
       assertRunActive(snapshot);
@@ -576,12 +740,27 @@ export class Coordinator {
       const artifact: ArtifactRecord = {
         id: `artifact-${snapshot.artifacts.length + 1}`,
         roleId: input.roleId,
+        instanceId: input.instanceId,
         path: artifactPath,
         sha256,
         createdAt: new Date().toISOString(),
-        final: input.final ?? false
+        final: input.final ?? false,
+        ...(input.roleId === "expert.tester"
+          ? {
+              verification: validateVerificationResult(
+                verificationInput,
+                snapshot,
+                input.instanceId
+              )
+            }
+          : {})
       };
       snapshot.artifacts.push(artifact);
+      if (artifact.verification) {
+        snapshot.verificationAttemptStatus = "submitted";
+        snapshot.verificationStatus = artifact.verification.status;
+        snapshot.verificationResults.push(artifact.verification);
+      }
       snapshot.activeAgents = remainingAgents;
 
       const emitted = [
@@ -617,6 +796,15 @@ export class Coordinator {
           )
         );
       }
+      if (artifact.verification) {
+        emit("verification.validated", "system", {
+          artifactId: artifact.id,
+          attempt: artifact.verification.attempt,
+          status: artifact.verification.status,
+          verifierInstanceId: artifact.verification.verifierInstanceId,
+          implementerInstanceIds: artifact.verification.implementerInstanceIds
+        });
+      }
       const previous = snapshot.state;
       const advance = this.stateAfterSubmission(snapshot, input.roleId, input.final ?? false);
       if (advance) {
@@ -625,7 +813,11 @@ export class Coordinator {
           from: previous,
           to: snapshot.state
         });
-        if (previous === "created" && snapshot.requestedMode === "auto") {
+        if (
+          previous === "created" &&
+          snapshot.requestedMode === "auto" &&
+          snapshot.risk.requiresModeApproval
+        ) {
           const classifiedState = snapshot.state;
           const decision = this.createDecision(
             snapshot,
@@ -665,11 +857,18 @@ export class Coordinator {
             from: classifiedState,
             to: snapshot.state
           });
-        } else if (previous === "plan_review") {
+        } else if (
+          previous === "plan_review" ||
+          (snapshot.mode === "light" &&
+            (previous === "classified" || previous === "planning"))
+        ) {
+          const independentlyReviewed = previous === "plan_review";
           const decision = this.createDecision(
             snapshot,
             "plan",
-            "方案已通过独立审议，是否进入代码实施？",
+            independentlyReviewed
+              ? "方案已通过独立审议，是否进入代码实施？"
+              : "轻量方案已完成，是否进入代码实施？",
             [
               {
                 id: "approve",
@@ -690,13 +889,59 @@ export class Coordinator {
                 recommended: false
               }
             ],
-            { planArtifactId: artifact.id }
+            {
+              planArtifactId: artifact.id,
+              independentlyReviewed
+            }
           );
           emit("decision.requested", "system", { decision });
-        } else if (
-          (previous === "result_review" || previous === "verification") &&
-          snapshot.state === "awaiting_merge_approval"
-        ) {
+        } else if (snapshot.state === "awaiting_verification_decision") {
+          const decision = this.createDecision(
+            snapshot,
+            "verification",
+            "验证证据不足，如何继续？",
+            [
+              {
+                id: "provide-evidence",
+                label: "补充验证证据",
+                description: "重新运行或补充可执行的验证命令。",
+                recommended: true
+              },
+              {
+                id: "retry",
+                label: "重新验证",
+                description: "重新派遣独立验证者执行验证。",
+                recommended: false
+              },
+              {
+                id: "cancel",
+                label: "取消运行",
+                description: "保留现场并停止本次运行。",
+                recommended: false
+              }
+            ],
+            {
+              verificationStatus: snapshot.verificationStatus,
+              verificationResult:
+                snapshot.verificationResults.at(-1) ?? null
+            }
+          );
+          emit("decision.requested", "system", { decision });
+        } else {
+          if (
+            snapshot.state === "result_review" &&
+            snapshot.resultReviewCompleted &&
+            snapshot.verificationStatus === "passed"
+          ) {
+            const reviewState = snapshot.state;
+            transition(snapshot, "awaiting_merge_approval");
+            emit("run.transitioned", "system", {
+              from: reviewState,
+              to: snapshot.state
+            });
+          }
+        }
+        if (snapshot.state === "awaiting_merge_approval") {
           const options: DecisionOption[] = snapshot.candidates
             .filter((candidate) =>
               ["verified", "selected"].includes(candidate.status)
@@ -1122,6 +1367,29 @@ export class Coordinator {
     return snapshot.decisions.find((decision) => decision.status === "pending");
   }
 
+  private assertRuntimeCapabilities(snapshot: RunSnapshot): void {
+    const report = snapshot.runtimeCapabilities;
+    if (!report) {
+      throw new Error(
+        "Runtime capabilities must be registered before claiming a child agent"
+      );
+    }
+    if (Date.now() - Date.parse(report.checkedAt) > 30 * 60_000) {
+      throw new Error("Runtime capability report is older than 30 minutes");
+    }
+    if (report.capabilities.subagents !== "available") {
+      throw new Error("Codex subagents are not available in this runtime");
+    }
+    if (
+      snapshot.mode === "full" &&
+      report.capabilities.parallelAgents !== "available"
+    ) {
+      throw new Error(
+        "Full mode requires parallel agent capability in this runtime"
+      );
+    }
+  }
+
   private operationPermission(
     snapshot: RunSnapshot,
     type: OperationType
@@ -1157,6 +1425,34 @@ export class Coordinator {
         snapshot.budget = snapshot.modeBudgets[choiceId];
         snapshot.approvals.mode = new Date().toISOString();
         transition(snapshot, "classified");
+        return;
+      case "escalation":
+        if (choiceId === "cancel") {
+          transition(snapshot, "cancelled");
+          return;
+        }
+        if (choiceId !== "upgrade-full") {
+          throw new Error(`Unsupported escalation choice: ${choiceId}`);
+        }
+        snapshot.mode = "full";
+        snapshot.budget = snapshot.modeBudgets.full;
+        snapshot.approvals.mode = new Date().toISOString();
+        snapshot.reworkTarget = "planning";
+        transition(snapshot, "planning");
+        return;
+      case "verification":
+        if (choiceId === "cancel") {
+          transition(snapshot, "cancelled");
+          return;
+        }
+        if (choiceId !== "retry" && choiceId !== "provide-evidence") {
+          throw new Error(`Unsupported verification choice: ${choiceId}`);
+        }
+        snapshot.verificationAttemptStatus = "not_started";
+        snapshot.verificationStatus = "unverified";
+        snapshot.verificationCompleted = false;
+        snapshot.resultReviewCompleted = false;
+        transition(snapshot, "verification");
         return;
       case "plan":
         if (choiceId === "approve") {
@@ -1243,7 +1539,10 @@ export class Coordinator {
       executing: snapshot.allowedSpecialists.filter(
         (candidate) => candidate !== "expert.tester"
       ),
-      verification: ["expert.tester", "governance.judge"],
+      verification:
+        snapshot.mode === "light"
+          ? ["expert.tester"]
+          : ["expert.tester", "governance.judge"],
       result_review: ["governance.judge"],
       integrating: ["governance.publisher"]
     };
@@ -1299,6 +1598,10 @@ export class Coordinator {
     snapshot.agentInstances ??= [];
     snapshot.decisions ??= [];
     snapshot.candidates ??= [];
+    snapshot.verificationAttemptStatus ??= "not_started";
+    snapshot.verificationStatus ??= "unverified";
+    snapshot.verificationResults ??= [];
+    snapshot.requiredVerification ??= [];
     snapshot.budget.leaseTimeoutMinutes ??=
       snapshot.mode === "full" ? 10 : 5;
   }
@@ -1312,9 +1615,13 @@ export class Coordinator {
       case "created":
         return "classified";
       case "classified":
-        return "plan_review";
+        return snapshot.mode === "light"
+          ? "awaiting_plan_approval"
+          : "plan_review";
       case "planning":
-        return "plan_review";
+        return snapshot.mode === "light"
+          ? "awaiting_plan_approval"
+          : "plan_review";
       case "plan_review":
         return "awaiting_plan_approval";
       case "dispatching":
@@ -1322,16 +1629,41 @@ export class Coordinator {
       case "executing":
         if (final) {
           snapshot.verificationCompleted = false;
+          snapshot.verificationAttemptStatus = "not_started";
+          snapshot.verificationStatus = "unverified";
           snapshot.resultReviewCompleted = false;
           return "verification";
         }
         return undefined;
       case "verification":
-        if (roleId === "expert.tester") snapshot.verificationCompleted = true;
+        if (roleId === "expert.tester") {
+          snapshot.verificationCompleted = true;
+          if (snapshot.mode === "light") {
+            snapshot.resultReviewCompleted = true;
+          }
+        }
         if (roleId === "governance.judge") snapshot.resultReviewCompleted = true;
-        return snapshot.verificationCompleted && snapshot.resultReviewCompleted
-          ? "awaiting_merge_approval"
-          : undefined;
+        if (
+          snapshot.mode === "full" &&
+          (!snapshot.verificationCompleted || !snapshot.resultReviewCompleted)
+        ) {
+          return undefined;
+        }
+        if (snapshot.mode === "light" && !snapshot.verificationCompleted) {
+          return undefined;
+        }
+        if (snapshot.verificationStatus === "failed") {
+          snapshot.resultReworks += 1;
+          if (snapshot.resultReworks > snapshot.budget.maxResultReworks) {
+            return "blocked";
+          }
+          snapshot.reworkTarget = "executing";
+          return "rework";
+        }
+        if (snapshot.verificationStatus === "unverified") {
+          return "awaiting_verification_decision";
+        }
+        return "result_review";
       case "result_review":
         return "awaiting_merge_approval";
       case "integrating":

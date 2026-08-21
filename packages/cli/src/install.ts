@@ -3,7 +3,8 @@ import { dirname, join } from "node:path";
 import {
   ALL_ROLES,
   type AdapterCompileResult,
-  type HostAdapter
+  type HostAdapter,
+  type HostCapabilities
 } from "@thearchy/core";
 import { CodexAdapter } from "@thearchy/adapter-codex";
 import { ClaudeAdapter } from "@thearchy/adapter-claude";
@@ -110,6 +111,9 @@ export interface DesktopInstallStatus {
   pluginInstalled: boolean;
   marketplaceRegistered: boolean;
   runtimeInstalled: boolean;
+  platformSupported: boolean;
+  runtimeAvailability: "unknown";
+  capabilities: HostCapabilities;
   deepLink: string;
 }
 
@@ -144,6 +148,7 @@ export async function codexDesktopStatus(): Promise<DesktopInstallStatus> {
   } catch {
     marketplaceRegistered = false;
   }
+  const capabilities = await new CodexAdapter().detect();
   return {
     pluginPath,
     marketplacePath,
@@ -151,6 +156,9 @@ export async function codexDesktopStatus(): Promise<DesktopInstallStatus> {
     pluginInstalled: await exists(join(pluginPath, ".codex-plugin", "plugin.json")),
     marketplaceRegistered,
     runtimeInstalled: await exists(runtimePath),
+    platformSupported: process.platform === "win32",
+    runtimeAvailability: "unknown",
+    capabilities,
     deepLink: codexPluginDeepLink()
   };
 }
@@ -183,7 +191,7 @@ export async function installHosts(
       ...(host === "codex"
         ? {
             pluginAssetsDirectory: join(assetsDirectory(), "assets"),
-            version: `0.2.0-beta.1+codex.local-${cachebuster}`,
+            version: `0.2.0+codex.local-${cachebuster}`,
             subagentModel: "gpt-5.6-luna",
             subagentReasoningEffort: "max",
             preserveMainModel: true

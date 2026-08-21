@@ -10,20 +10,25 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   ],
   classified: [
     "awaiting_mode_approval",
+    "awaiting_escalation_decision",
     "planning",
     "plan_review",
+    "awaiting_plan_approval",
     "awaiting_conflict_decision",
     "cancelled",
     "failed"
   ],
   awaiting_mode_approval: ["classified", "cancelled", "failed"],
   planning: [
+    "awaiting_escalation_decision",
     "plan_review",
+    "awaiting_plan_approval",
     "awaiting_conflict_decision",
     "cancelled",
     "failed"
   ],
   plan_review: [
+    "awaiting_escalation_decision",
     "awaiting_plan_approval",
     "awaiting_conflict_decision",
     "rework",
@@ -31,8 +36,16 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
     "cancelled",
     "failed"
   ],
-  awaiting_plan_approval: ["dispatching", "rework", "cancelled", "failed"],
+  awaiting_plan_approval: [
+    "awaiting_escalation_decision",
+    "dispatching",
+    "rework",
+    "awaiting_conflict_decision",
+    "cancelled",
+    "failed"
+  ],
   dispatching: [
+    "awaiting_escalation_decision",
     "executing",
     "awaiting_conflict_decision",
     "blocked",
@@ -41,6 +54,7 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   ],
   executing: [
     "awaiting_risk_approval",
+    "awaiting_escalation_decision",
     "verification",
     "blocked",
     "awaiting_conflict_decision",
@@ -55,12 +69,20 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
     "cancelled",
     "failed"
   ],
+  awaiting_escalation_decision: ["planning", "cancelled", "failed"],
   verification: [
     "awaiting_risk_approval",
+    "awaiting_escalation_decision",
+    "awaiting_verification_decision",
     "result_review",
     "awaiting_merge_approval",
     "awaiting_conflict_decision",
     "blocked",
+    "cancelled",
+    "failed"
+  ],
+  awaiting_verification_decision: [
+    "verification",
     "cancelled",
     "failed"
   ],
@@ -135,11 +157,30 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
   const interaction = snapshot.decisions.find(
     (decision) => decision.status === "pending"
   );
-  const withPolicy = (action: NextAction): NextAction => ({
-    ...action,
-    ...(action.roleId ? { modelPolicy: snapshot.modelPolicy } : {}),
-    ...(interaction ? { interaction } : {})
-  });
+  const withPolicy = (action: NextAction): NextAction => {
+    const rootManaged =
+      action.roleId !== undefined &&
+      (["governance.router", "governance.dispatcher", "governance.publisher"].includes(
+        action.roleId
+      ) ||
+        (snapshot.mode === "light" &&
+          action.roleId === "governance.planner"));
+    return {
+      ...action,
+      ...(action.roleId && !rootManaged
+        ? { modelPolicy: snapshot.modelPolicy }
+        : {}),
+      ...(interaction ? { interaction } : {}),
+      ...(action.roleId && !rootManaged
+        ? {
+            requiredCapabilities:
+              snapshot.mode === "full"
+                ? (["subagents", "parallelAgents"] as const)
+                : (["subagents"] as const)
+          }
+        : {})
+    };
+  };
   const actions: Record<RunState, NextAction> = {
     created: {
       state: "created",
@@ -208,22 +249,48 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
         "Invoke the inquiry component. Do not execute the requested operation before a decision.",
       requiresUserApproval: true
     },
+    awaiting_escalation_decision: {
+      state: "awaiting_escalation_decision",
+      action: "approve-mode-escalation",
+      instructions:
+        "Invoke the inquiry component. Upgrade to full mode or cancel; do not continue light mode.",
+      requiresUserApproval: true
+    },
     verification: {
       state: "verification",
-      roleId: snapshot.verificationCompleted
-        ? "governance.judge"
-        : "expert.tester",
-      ...(!snapshot.verificationCompleted && !snapshot.resultReviewCompleted
+      roleId:
+        snapshot.mode === "light"
+          ? "expert.tester"
+          : snapshot.verificationCompleted
+            ? "governance.judge"
+            : "expert.tester",
+      ...(snapshot.mode === "full" &&
+      !snapshot.verificationCompleted &&
+      !snapshot.resultReviewCompleted
         ? { parallelRoles: ["expert.tester", "governance.judge"] }
         : {}),
-      action: snapshot.verificationCompleted ? "review-result" : "verify",
+      action:
+        snapshot.mode === "light"
+          ? "verify-and-review"
+          : snapshot.verificationCompleted
+            ? "review-result"
+            : "verify",
       instructions:
-        !snapshot.verificationCompleted && !snapshot.resultReviewCompleted
+        snapshot.mode === "light"
+          ? "Independently run the required checks and review the result in one combined verification artifact. Missing tests must be reported as unverified."
+          : !snapshot.verificationCompleted && !snapshot.resultReviewCompleted
           ? "Run tester and result judge concurrently. Missing tests must be reported as unverified."
           : snapshot.verificationCompleted
             ? "Submit the independent result judgment."
             : "Run detected quality checks and submit evidence.",
       requiresUserApproval: false
+    },
+    awaiting_verification_decision: {
+      state: "awaiting_verification_decision",
+      action: "resolve-unverified-result",
+      instructions:
+        "Invoke the inquiry component. Verification evidence must be supplied or retried before delivery.",
+      requiresUserApproval: true
     },
     result_review: {
       state: "result_review",

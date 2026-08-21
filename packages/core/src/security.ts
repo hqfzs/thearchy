@@ -1,5 +1,13 @@
-import { lstat, realpath } from "node:fs/promises";
-import { basename, extname, isAbsolute, relative, resolve, sep } from "node:path";
+import { realpath } from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep
+} from "node:path";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
@@ -48,12 +56,15 @@ export async function assertNoSymlinkEscape(
   candidate: string
 ): Promise<string> {
   const safeCandidate = assertPathInside(root, candidate);
-  const info = await lstat(safeCandidate);
-  if (info.isSymbolicLink()) {
-    const target = await realpath(safeCandidate);
-    return assertPathInside(root, target);
+  const realRoot = await realpath(resolve(root));
+  try {
+    return assertPathInside(realRoot, await realpath(safeCandidate));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const realParent = await realpath(dirname(safeCandidate));
+    assertPathInside(realRoot, realParent);
+    return safeCandidate;
   }
-  return safeCandidate;
 }
 
 export function isSecretPath(path: string): boolean {

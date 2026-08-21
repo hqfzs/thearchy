@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — 2026-08-21
+
+- Declared Windows and Codex Desktop as the stable support target.
+- Added runtime capability registration and fail-closed child-agent claims.
+- Upgraded persisted runs to schema v3 with v1/v2 migration.
+- Added contextual risk dimensions and runtime light-to-full escalation.
+- Added structured, independently attributable verification results.
+- Added transactional run persistence and interrupted-write recovery.
+- Hardened Git status and Windows path handling.
+- Added Windows release gates and optimized routing/light-mode benchmarks.
+
 ## 0.2.0-beta.1 — 2026-08-20
 
 - Added structured mode, plan, risk, conflict, and merge decisions.

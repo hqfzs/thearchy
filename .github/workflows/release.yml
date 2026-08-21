@@ -10,7 +10,23 @@ permissions:
   id-token: write
 
 jobs:
+  windows-codex-gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run validate:plugin
+      - run: npm run test:stability
+      - run: npm run benchmark:routing-light
+      - run: npm run test:package
+
   release:
+    needs: windows-codex-gate
     runs-on: ubuntu-latest
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -30,12 +46,16 @@ jobs:
       - run: mkdir -p artifacts
       - run: npm pack --workspace packages/cli --pack-destination artifacts
       - run: sha256sum artifacts/*.tgz thearchy.spdx.json > SHA256SUMS
+      - name: Verify stable version and npm authentication
+        run: |
+          test "$(node -p "require('./packages/cli/package.json').version")" = "${GITHUB_REF_NAME#v}"
+          test -n "$NODE_AUTH_TOKEN"
+          npm whoami
+      - run: npm publish --workspace packages/cli --provenance --access public --tag latest
       - uses: softprops/action-gh-release@v2
         with:
-          prerelease: true
+          prerelease: false
           files: |
             artifacts/*.tgz
             thearchy.spdx.json
             SHA256SUMS
-      - run: npm publish --workspace packages/cli --provenance --access public --tag beta
-        if: ${{ env.NODE_AUTH_TOKEN != '' }}

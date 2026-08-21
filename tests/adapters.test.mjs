@@ -30,3 +30,10 @@ test("both adapters compile from the same template IR", async () => {
   await access(join(claudePath, "commands", "thearchy.md"));
   await access(join(claudePath, "agents", "governance-judge.md"));
 });
+
+test("Codex capabilities describe the desktop host contract, not PATH lookup", async () => {
+  const capabilities = await new CodexAdapter().detect();
+  assert.equal(capabilities.subagents, true);
+  assert.equal(capabilities.parallelAgents, true);
+  assert.equal(capabilities.mcp, true);
+});

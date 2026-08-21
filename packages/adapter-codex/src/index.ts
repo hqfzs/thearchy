@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
@@ -9,14 +8,6 @@ import type {
   RoleDefinition,
   TeamTemplate
 } from "@thearchy/core";
-
-function codexAvailable(): boolean {
-  const result = spawnSync("codex", ["--version"], {
-    encoding: "utf8",
-    windowsHide: true
-  });
-  return result.status === 0;
-}
 
 function renderSkill(
   templates: TeamTemplate[],
@@ -68,20 +59,23 @@ ${modelPolicy}
 ## Workflow
 
 1. Run \`${coordinatorCommand} run start\` with the requested template and mode.
-2. Call \`${coordinatorCommand} run next <run-id> --json\`.
-3. If \`next\` returns \`interaction\`, invoke \`mcp__choice_prompt__ask_user_choice\` first. If unavailable, use \`request_user_input\`. If neither is available, show the same options in chat and stop until the user replies. Never auto-select risk, conflict, or merge decisions.
-4. Submit the selected option with \`${coordinatorCommand} run decide <run-id> --request <decision-id> --choice <option-id>\`.
-5. The root/main agent performs \`governance.router\`, \`governance.dispatcher\`, and \`governance.publisher\` directly. In light mode it also performs \`governance.planner\`. Submit these artifacts with \`--instance root-main --root\`; do not spawn child agents for them.
-6. In full mode spawn one planner. Reuse one independent judge thread for plan and result review. Spawn only the minimum domain expert and tester needed. The normal topology is four child agents: planner, judge, expert, tester.
-7. Before spawning a child agent, reserve its slot with \`${coordinatorCommand} run claim <run-id> --role <role-id> --instance <instance-id> --model ${options.subagentModel ?? "gpt-5.6-luna"} --reasoning-effort ${options.subagentReasoningEffort ?? "max"}\`.
-8. Delegate only the claimed role and apply the subagent model policy.
-9. Send \`${coordinatorCommand} run heartbeat <run-id> --instance <instance-id>\` during long-running work.
-10. Save each child result as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Submission releases the slot.
-11. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
-12. Before network, dependency installation, destructive actions, migration, publishing, external writes, or sensitive reads, call \`${coordinatorCommand} run request-operation\` and resolve its interaction.
-13. When \`next\` returns \`parallelRoles\`, run those child roles concurrently within the coordinator concurrency budget. During verification, run the tester and reusable result judge in parallel.
-14. Never start a second run for the same task and repository. If \`run start\` returns an existing run ID, resume it.
-15. Export the final report.
+2. Inspect the tools visible in the current Codex task. Generate a runtime report with \`${coordinatorCommand} host report --subagents <available|unavailable|unknown> --parallel-agents <available|unavailable|unknown> --choice-prompt <available|unavailable|unknown> --output <path>\`, then register it with \`${coordinatorCommand} run register-capabilities <run-id> --input <path>\`.
+3. Call \`${coordinatorCommand} run next <run-id> --json\`.
+4. In auto mode, low-risk tasks route directly to light mode, medium-risk tasks request a light/full choice, and high-risk tasks route directly to full mode. If \`next\` returns \`interaction\`, invoke \`mcp__choice_prompt__ask_user_choice\` first. If unavailable, use \`request_user_input\`. If neither is available, show the same options in chat and stop until the user replies. Never auto-select risk, escalation, verification, conflict, or merge decisions.
+5. Submit the selected option with \`${coordinatorCommand} run decide <run-id> --request <decision-id> --choice <option-id>\`.
+6. The root/main agent performs \`governance.router\`, \`governance.dispatcher\`, and \`governance.publisher\` directly. In light mode it also performs \`governance.planner\`. Submit these artifacts with \`--instance root-main --root\`; do not spawn child agents for them.
+7. Light mode uses at most two sequential child agents: one domain expert and one independent tester that combines verification with result review. It skips the separate plan-judge child while retaining plan approval, risk approval, and merge approval.
+8. In full mode spawn one planner. Reuse one independent judge thread for plan and result review. Spawn only the minimum domain expert and tester needed. The normal topology is four child agents: planner, judge, expert, tester.
+9. Before spawning a child agent, reserve its slot with \`${coordinatorCommand} run claim <run-id> --role <role-id> --instance <instance-id> --model ${options.subagentModel ?? "gpt-5.6-luna"} --reasoning-effort ${options.subagentReasoningEffort ?? "max"}\`.
+10. Delegate only the claimed role and apply the subagent model policy.
+11. Send \`${coordinatorCommand} run heartbeat <run-id> --instance <instance-id>\` during long-running work.
+12. Save each child result as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Tester artifacts must use the structured verification JSON contract. Submission releases the slot.
+13. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
+14. If scope, sensitive paths, destructive work, migration, or missing verification is discovered, call \`${coordinatorCommand} run reassess <run-id> --signal <type> --summary <text>\` and resolve any escalation interaction before continuing.
+15. Before network, dependency installation, destructive actions, migration, publishing, external writes, or sensitive reads, call \`${coordinatorCommand} run request-operation\` and resolve its interaction.
+16. When \`next\` returns \`parallelRoles\`, run those child roles concurrently within the coordinator concurrency budget. This is a full-mode optimization; light mode remains sequential.
+17. Never start a second run for the same task and repository. If \`run start\` returns an existing run ID, resume it.
+18. Export the final report.
 
 Do not let planner, implementer, and judge share hidden reasoning or approve their own work.
 Do not read secret files or execute commands that require approval without user consent.
@@ -101,13 +95,15 @@ export class CodexAdapter implements HostAdapter {
   readonly displayName = "OpenAI Codex";
 
   async detect(): Promise<HostCapabilities> {
-    const available = codexAvailable();
+    // These are capabilities of the generated Codex plugin contract, not a
+    // probe for whether the optional `codex` shell executable is on PATH.
+    // Desktop installation status is detected separately by the CLI.
     return {
-      subagents: available,
-      parallelAgents: available,
+      subagents: true,
+      parallelAgents: true,
       customCommands: false,
       hooks: false,
-      mcp: available,
+      mcp: true,
       usageReporting: false
     };
   }
@@ -133,7 +129,7 @@ export class CodexAdapter implements HostAdapter {
 
     const manifest = {
       name: "thearchy",
-      version: options.version ?? "0.2.0-beta.1",
+      version: options.version ?? "0.2.0",
       description: "Deterministic multi-agent quality governance for Codex.",
       author: { name: "Thearchy Contributors" },
       homepage: "https://github.com/hqfzs/thearchy",

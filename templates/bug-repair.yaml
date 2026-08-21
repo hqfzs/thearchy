@@ -10,8 +10,10 @@ spec:
   profiles:
     light:
       strategy: single
-      maxAgents: 3
-      maxConcurrency: 2
+      maxAgents: 2
+      maxConcurrency: 1
+      timeoutMinutes: 10
+      maxPlanReworks: 1
     full:
       strategy: competitive
       maxAgents: 4

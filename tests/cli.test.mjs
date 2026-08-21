@@ -21,7 +21,7 @@ function run(args, cwd = process.cwd(), env = {}) {
 }
 
 test("bundled CLI reports its version and templates", () => {
-  assert.equal(run(["--version"]), "0.2.0-beta.1");
+  assert.equal(run(["--version"]), "0.2.0");
   const templates = JSON.parse(run(["template", "list"]));
   assert.equal(templates.length, 5);
   assert.ok(templates.some((template) => template.id === "feature-delivery"));
@@ -71,7 +71,7 @@ test("embedded coordinator runs without a global CLI installation", () => {
     windowsHide: true
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), "0.2.0-beta.1");
+  assert.equal(result.stdout.trim(), "0.2.0");
 });
 
 test("desktop install registers an installed-by-default personal plugin", async () => {
@@ -137,6 +137,9 @@ test("desktop install registers an installed-by-default personal plugin", async 
 
   const status = JSON.parse(run(["desktop", "status"], directory, env));
   assert.equal(status.runtimeInstalled, true);
+  assert.equal(status.capabilities.subagents, true);
+  assert.equal(status.capabilities.parallelAgents, true);
+  assert.equal(status.capabilities.mcp, true);
 
   const removed = JSON.parse(
     run(["desktop", "uninstall"], directory, env)
