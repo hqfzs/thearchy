@@ -34,7 +34,7 @@
     "sbom": "npm sbom --sbom-format spdx > thearchy.spdx.json"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.2.0",
     "esbuild": "^0.25.9",
     "typescript": "^5.9.0"
   }
