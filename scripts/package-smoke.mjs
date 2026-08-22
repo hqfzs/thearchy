@@ -45,7 +45,7 @@ const run = spawnSync(process.execPath, [installedCli, "--version"], {
   windowsHide: true
 });
 if (run.status !== 0) throw new Error(run.stderr || run.stdout);
-if (!run.stdout.trim().startsWith("0.2.0")) {
+if (!run.stdout.trim().startsWith("0.2.1")) {
   throw new Error(`Unexpected packaged CLI version: ${run.stdout.trim()}`);
 }
 

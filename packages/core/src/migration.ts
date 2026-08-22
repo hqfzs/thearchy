@@ -262,7 +262,29 @@ function normalizeV3(raw: Record<string, unknown>): RunSnapshot {
     budget: {
       ...DEFAULT_BUDGETS[mode],
       ...((raw.budget as Partial<RunSnapshot["budget"]> | undefined) ?? {})
-    }
+    },
+    activeElapsedMs:
+      typeof raw.activeElapsedMs === "number"
+        ? Math.max(0, raw.activeElapsedMs)
+        : Math.max(
+            0,
+            Date.parse(
+              typeof raw.updatedAt === "string"
+                ? raw.updatedAt
+                : new Date().toISOString()
+            ) -
+              Date.parse(
+                typeof raw.startedAt === "string"
+                  ? raw.startedAt
+                  : new Date().toISOString()
+              )
+          ),
+    budgetExtensions:
+      (raw.budgetExtensions as RunSnapshot["budgetExtensions"] | undefined) ?? [],
+    ...(typeof raw.activeSince === "string"
+      ? { activeSince: raw.activeSince }
+      : {}),
+    ...(typeof raw.pausedAt === "string" ? { pausedAt: raw.pausedAt } : {})
   };
 }
 
@@ -340,6 +362,9 @@ function recoverySnapshot(
       full: DEFAULT_BUDGETS.full
     },
     budget: DEFAULT_BUDGETS[mode],
+    activeElapsedMs: 0,
+    budgetExtensions: [],
+    pausedAt: now,
     startedAt: typeof raw.startedAt === "string" ? raw.startedAt : now,
     updatedAt: now,
     readOnlyRecovery: { reason, sourceSchemaVersion }

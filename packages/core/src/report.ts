@@ -1,4 +1,5 @@
 import { redactSecrets } from "./security.js";
+import { activeElapsedMilliseconds } from "./state-machine.js";
 import type { RunEvent, RunSnapshot } from "./types.js";
 
 export function renderRunReport(
@@ -27,6 +28,8 @@ export function renderRunReport(
     `- 工作区含未提交修改：${snapshot.dirtyWorkingTree ? "是" : "否"}`,
     `- 开始：${snapshot.startedAt}`,
     `- 更新：${snapshot.updatedAt}`,
+    `- 活动执行时间：${Math.round(activeElapsedMilliseconds(snapshot) / 1000)} 秒`,
+    `- 预算延期：${snapshot.budgetExtensions.reduce((sum, item) => sum + item.minutes, 0)} 分钟`,
     `- 子 Agent 模型：${snapshot.modelPolicy.model} / ${snapshot.modelPolicy.reasoningEffort}`,
     `- Agent 预算：${snapshot.agentInstances.length}/${snapshot.budget.maxAgents}`,
     `- 当前并发：${snapshot.activeAgents.length}/${snapshot.budget.maxConcurrency}`,

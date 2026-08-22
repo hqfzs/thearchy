@@ -12,7 +12,12 @@ import { resolveBudget } from "./budget.js";
 import { inspectGitBaseline } from "./git.js";
 import { DEFAULT_MODEL_POLICY } from "./policy.js";
 import { ROLE_BY_ID } from "./roles.js";
-import { assertRunActive, assertTransition, nextAction } from "./state-machine.js";
+import {
+  assertRunActive,
+  assertTransition,
+  isRunClockPaused,
+  nextAction
+} from "./state-machine.js";
 import { nextEvent, RunStore } from "./store.js";
 import { sha256File } from "./security.js";
 import { validateVerificationResult } from "./verification.js";
@@ -49,10 +54,24 @@ function taskFingerprint(task: string): string {
 
 function transition(snapshot: RunSnapshot, state: RunState): void {
   assertTransition(snapshot.state, state);
+  const now = new Date().toISOString();
+  if (snapshot.activeSince && !isRunClockPaused(snapshot.state)) {
+    snapshot.activeElapsedMs += Math.max(
+      0,
+      Date.parse(now) - Date.parse(snapshot.activeSince)
+    );
+  }
   snapshot.previousState = snapshot.state;
   snapshot.state = state;
+  if (isRunClockPaused(state)) {
+    delete snapshot.activeSince;
+    snapshot.pausedAt = now;
+  } else {
+    snapshot.activeSince = now;
+    delete snapshot.pausedAt;
+  }
   if (state === "completed") {
-    snapshot.completedAt = new Date().toISOString();
+    snapshot.completedAt = now;
   }
 }
 
@@ -180,6 +199,9 @@ export class Coordinator {
       dirtyWorkingTree: baseline.dirty,
       modeBudgets,
       budget,
+      activeElapsedMs: 0,
+      activeSince: now,
+      budgetExtensions: [],
       startedAt: now,
       updatedAt: now
     };
@@ -205,6 +227,34 @@ export class Coordinator {
 
   async status(id: string): Promise<RunSnapshot> {
     return this.store.load(id);
+  }
+
+  async extendBudget(
+    id: string,
+    minutes: number,
+    actor = "user"
+  ): Promise<RunSnapshot> {
+    if (!Number.isInteger(minutes) || minutes <= 0 || minutes > 1440) {
+      throw new Error("Budget extension must be an integer from 1 to 1440 minutes");
+    }
+    return this.store.update(id, (snapshot, events) => {
+      if (snapshot.readOnlyRecovery) {
+        throw new Error(
+          `Run ${snapshot.id} is in read-only recovery: ${snapshot.readOnlyRecovery.reason}`
+        );
+      }
+      if (["completed", "cancelled"].includes(snapshot.state)) {
+        throw new Error(`Run ${snapshot.id} is terminal: ${snapshot.state}`);
+      }
+      snapshot.budget.timeoutMinutes += minutes;
+      snapshot.modeBudgets[snapshot.mode].timeoutMinutes += minutes;
+      const createdAt = new Date().toISOString();
+      snapshot.budgetExtensions.push({ minutes, actor, createdAt });
+      return nextEvent(events, id, "budget.extended", actor, {
+        minutes,
+        timeoutMinutes: snapshot.budget.timeoutMinutes
+      });
+    });
   }
 
   async registerCapabilities(
@@ -270,6 +320,7 @@ export class Coordinator {
       assertRunActive(snapshot);
       this.ensureCoordinationFields(snapshot);
       this.assertRoleAllowed(snapshot, roleId);
+      snapshot.runtimeCapabilitiesRegisteredAt = new Date().toISOString();
       this.assertRuntimeCapabilities(snapshot);
       if (
         model !== snapshot.modelPolicy.model ||
@@ -393,6 +444,7 @@ export class Coordinator {
       lease.expiresAt = new Date(
         now.getTime() + snapshot.budget.leaseTimeoutMinutes * 60_000
       ).toISOString();
+      snapshot.runtimeCapabilitiesRegisteredAt = now.toISOString();
       return nextEvent(events, id, "agent.heartbeat", actor, {
         instanceId,
         roleId: lease.roleId,
@@ -655,6 +707,9 @@ export class Coordinator {
   ): Promise<RunSnapshot> {
     return this.store.update(id, (snapshot, events) => {
       this.ensureCoordinationFields(snapshot);
+      if (snapshot.runtimeCapabilities) {
+        snapshot.runtimeCapabilitiesRegisteredAt = new Date().toISOString();
+      }
       const decision = snapshot.decisions.find(
         (item) => item.id === requestId && item.status === "pending"
       );
@@ -707,6 +762,9 @@ export class Coordinator {
     return this.store.update(input.runId, (snapshot, events) => {
       assertRunActive(snapshot);
       this.ensureCoordinationFields(snapshot);
+      if (snapshot.runtimeCapabilities) {
+        snapshot.runtimeCapabilitiesRegisteredAt = new Date().toISOString();
+      }
       this.assertRoleAllowed(snapshot, input.roleId);
       const rootManaged = input.rootManaged ?? false;
       if (rootManaged && !this.canRootManage(snapshot, input.roleId)) {
@@ -1143,7 +1201,14 @@ export class Coordinator {
 
   async cancel(id: string, actor = "user"): Promise<RunSnapshot> {
     return this.store.update(id, (snapshot, events) => {
-      assertRunActive(snapshot);
+      if (snapshot.readOnlyRecovery) {
+        throw new Error(
+          `Run ${snapshot.id} is in read-only recovery: ${snapshot.readOnlyRecovery.reason}`
+        );
+      }
+      if (["completed", "cancelled"].includes(snapshot.state)) {
+        throw new Error(`Run ${snapshot.id} is terminal: ${snapshot.state}`);
+      }
       const previous = snapshot.state;
       transition(snapshot, "cancelled");
       const cancelled = nextEvent(events, id, "run.cancelled", actor, {});
@@ -1374,9 +1439,6 @@ export class Coordinator {
         "Runtime capabilities must be registered before claiming a child agent"
       );
     }
-    if (Date.now() - Date.parse(report.checkedAt) > 30 * 60_000) {
-      throw new Error("Runtime capability report is older than 30 minutes");
-    }
     if (report.capabilities.subagents !== "available") {
       throw new Error("Codex subagents are not available in this runtime");
     }
@@ -1540,9 +1602,7 @@ export class Coordinator {
         (candidate) => candidate !== "expert.tester"
       ),
       verification:
-        snapshot.mode === "light"
-          ? ["expert.tester"]
-          : ["expert.tester", "governance.judge"],
+        ["expert.tester"],
       result_review: ["governance.judge"],
       integrating: ["governance.publisher"]
     };
@@ -1602,6 +1662,16 @@ export class Coordinator {
     snapshot.verificationStatus ??= "unverified";
     snapshot.verificationResults ??= [];
     snapshot.requiredVerification ??= [];
+    snapshot.activeElapsedMs ??= 0;
+    snapshot.budgetExtensions ??= [];
+    if (
+      !snapshot.activeSince &&
+      !snapshot.pausedAt &&
+      !isRunClockPaused(snapshot.state) &&
+      !["completed", "cancelled"].includes(snapshot.state)
+    ) {
+      snapshot.activeSince = snapshot.updatedAt ?? snapshot.startedAt;
+    }
     snapshot.budget.leaseTimeoutMinutes ??=
       snapshot.mode === "full" ? 10 : 5;
   }
@@ -1642,14 +1712,7 @@ export class Coordinator {
             snapshot.resultReviewCompleted = true;
           }
         }
-        if (roleId === "governance.judge") snapshot.resultReviewCompleted = true;
-        if (
-          snapshot.mode === "full" &&
-          (!snapshot.verificationCompleted || !snapshot.resultReviewCompleted)
-        ) {
-          return undefined;
-        }
-        if (snapshot.mode === "light" && !snapshot.verificationCompleted) {
+        if (!snapshot.verificationCompleted) {
           return undefined;
         }
         if (snapshot.verificationStatus === "failed") {

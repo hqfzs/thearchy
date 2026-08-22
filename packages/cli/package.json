@@ -1,6 +1,6 @@
 {
   "name": "thearchy-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "神治（Thearchy）— deterministic multi-agent quality governance for coding agents.",
   "homepage": "https://github.com/hqfzs/thearchy#readme",
   "repository": {
@@ -32,8 +32,8 @@
     "provenance": true
   },
   "devDependencies": {
-    "@thearchy/adapter-claude": "0.2.0",
-    "@thearchy/adapter-codex": "0.2.0",
-    "@thearchy/core": "0.2.0"
+    "@thearchy/adapter-claude": "0.2.1",
+    "@thearchy/adapter-codex": "0.2.1",
+    "@thearchy/core": "0.2.1"
   }
 }

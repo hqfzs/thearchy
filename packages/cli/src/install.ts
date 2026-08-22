@@ -191,7 +191,7 @@ export async function installHosts(
       ...(host === "codex"
         ? {
             pluginAssetsDirectory: join(assetsDirectory(), "assets"),
-            version: `0.2.0+codex.local-${cachebuster}`,
+            version: `0.2.1+codex.local-${cachebuster}`,
             subagentModel: "gpt-5.6-luna",
             subagentReasoningEffort: "max",
             preserveMainModel: true

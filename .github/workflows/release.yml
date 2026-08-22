@@ -28,14 +28,11 @@ jobs:
   release:
     needs: windows-codex-gate
     runs-on: ubuntu-latest
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
       - run: npm test
@@ -46,11 +43,10 @@ jobs:
       - run: mkdir -p artifacts
       - run: npm pack --workspace packages/cli --pack-destination artifacts
       - run: sha256sum artifacts/*.tgz thearchy.spdx.json > SHA256SUMS
-      - name: Verify stable version and npm authentication
+      - name: Verify stable version and trusted publishing client
         run: |
           test "$(node -p "require('./packages/cli/package.json').version")" = "${GITHUB_REF_NAME#v}"
-          test -n "$NODE_AUTH_TOKEN"
-          npm whoami
+          node -e "const {execFileSync}=require('node:child_process'); const [major,minor]=execFileSync('npm',['--version'],{encoding:'utf8'}).trim().split('.').map(Number); if(major<11||(major===11&&minor<5)) process.exit(1)"
       - run: npm publish --workspace packages/cli --provenance --access public --tag latest
       - uses: softprops/action-gh-release@v2
         with:

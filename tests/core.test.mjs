@@ -298,10 +298,8 @@ test("coordinator enforces the complete governance flow", async () => {
   );
   assert.equal(snapshot.state, "verification");
   const verificationAction = await coordinator.next(snapshot.id);
-  assert.deepEqual(verificationAction.parallelRoles, [
-    "expert.tester",
-    "governance.judge"
-  ]);
+  assert.equal(verificationAction.roleId, "expert.tester");
+  assert.equal(verificationAction.parallelRoles, undefined);
 
   await coordinator.claim(
     snapshot.id,
@@ -310,6 +308,20 @@ test("coordinator enforces the complete governance flow", async () => {
     "gpt-5.6-luna",
     "max"
   );
+  snapshot = await coordinator.submit({
+    runId: snapshot.id,
+    roleId: "expert.tester",
+    instanceId: "tester-1",
+    artifactPath: await verificationArtifact(
+      artifacts,
+      "verification.json",
+      snapshot,
+      "tester-1"
+    )
+  });
+  assert.equal(snapshot.state, "result_review");
+  const resultReview = await coordinator.next(snapshot.id);
+  assert.equal(resultReview.roleId, "governance.judge");
   await coordinator.claim(
     snapshot.id,
     "governance.judge",
@@ -322,18 +334,6 @@ test("coordinator enforces the complete governance flow", async () => {
     roleId: "governance.judge",
     instanceId: "judge-1",
     artifactPath: await artifact(artifacts, "result-verdict.md")
-  });
-  assert.equal(snapshot.state, "verification");
-  snapshot = await coordinator.submit({
-    runId: snapshot.id,
-    roleId: "expert.tester",
-    instanceId: "tester-1",
-    artifactPath: await verificationArtifact(
-      artifacts,
-      "verification.json",
-      snapshot,
-      "tester-1"
-    )
   });
   assert.equal(snapshot.state, "awaiting_merge_approval");
   snapshot = await coordinator.approve(snapshot.id, "merge");

@@ -125,6 +125,35 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   failed: ["planning", "executing", "verification", "cancelled"]
 };
 
+const PAUSED_RUN_STATES = new Set<RunState>([
+  "awaiting_mode_approval",
+  "awaiting_plan_approval",
+  "awaiting_risk_approval",
+  "awaiting_escalation_decision",
+  "awaiting_verification_decision",
+  "awaiting_conflict_decision",
+  "awaiting_merge_approval",
+  "blocked",
+  "failed",
+  "completed",
+  "cancelled"
+]);
+
+export function isRunClockPaused(state: RunState): boolean {
+  return PAUSED_RUN_STATES.has(state);
+}
+
+export function activeElapsedMilliseconds(
+  snapshot: RunSnapshot,
+  now = Date.now()
+): number {
+  const active =
+    snapshot.activeSince && !isRunClockPaused(snapshot.state)
+      ? Math.max(0, now - Date.parse(snapshot.activeSince))
+      : 0;
+  return Math.max(0, snapshot.activeElapsedMs ?? 0) + active;
+}
+
 export function canTransition(from: RunState, to: RunState): boolean {
   return TRANSITIONS[from].includes(to);
 }
@@ -144,7 +173,7 @@ export function assertRunActive(snapshot: RunSnapshot): void {
   if (["completed", "cancelled"].includes(snapshot.state)) {
     throw new Error(`Run ${snapshot.id} is terminal: ${snapshot.state}`);
   }
-  const elapsedMs = Date.now() - Date.parse(snapshot.startedAt);
+  const elapsedMs = activeElapsedMilliseconds(snapshot);
   const limitMs = snapshot.budget.timeoutMinutes * 60_000;
   if (limitMs > 0 && elapsedMs > limitMs) {
     throw new Error(
@@ -258,31 +287,15 @@ export function nextAction(snapshot: RunSnapshot): NextAction {
     },
     verification: {
       state: "verification",
-      roleId:
-        snapshot.mode === "light"
-          ? "expert.tester"
-          : snapshot.verificationCompleted
-            ? "governance.judge"
-            : "expert.tester",
-      ...(snapshot.mode === "full" &&
-      !snapshot.verificationCompleted &&
-      !snapshot.resultReviewCompleted
-        ? { parallelRoles: ["expert.tester", "governance.judge"] }
-        : {}),
+      roleId: "expert.tester",
       action:
         snapshot.mode === "light"
           ? "verify-and-review"
-          : snapshot.verificationCompleted
-            ? "review-result"
-            : "verify",
+          : "verify",
       instructions:
         snapshot.mode === "light"
           ? "Independently run the required checks and review the result in one combined verification artifact. Missing tests must be reported as unverified."
-          : !snapshot.verificationCompleted && !snapshot.resultReviewCompleted
-          ? "Run tester and result judge concurrently. Missing tests must be reported as unverified."
-          : snapshot.verificationCompleted
-            ? "Submit the independent result judgment."
-            : "Run detected quality checks and submit evidence.",
+          : "Run the independent tester first. Missing tests must be reported as unverified.",
       requiresUserApproval: false
     },
     awaiting_verification_decision: {
