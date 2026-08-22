@@ -16,7 +16,7 @@ Use the `thearchy` CLI as the authoritative state machine.
 7. Keep planner, implementer, and judge contexts isolated.
 8. Heartbeat long-running instances and submit every result with the same instance ID.
 9. Request permission before every high-risk operation.
-10. Run `parallelRoles` concurrently; tester and reusable result judge should overlap during verification.
+10. In full mode, submit tester evidence before invoking the reusable result judge. Do not run final tester and result judge concurrently.
 11. Resume an existing matching run instead of starting a duplicate.
 12. Release failed instances that produce no artifact.
 13. Never claim quality passed without verification evidence. Feature, bug-fix, and migration verification must include structured boundary checks for exact types, subtype/coercion traps, nullability, ranges, empty values, and compatibility. Python integer contracts must test `bool` separately.

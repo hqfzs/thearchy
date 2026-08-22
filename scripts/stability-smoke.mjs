@@ -148,6 +148,12 @@ async function completeRun(mode, index) {
       "gpt-5.6-luna",
       "max"
     );
+    snapshot = await coordinator.submit({
+      runId: snapshot.id,
+      roleId: "expert.tester",
+      instanceId: "tester",
+      artifactPath: await verificationArtifact(snapshot, "tester")
+    });
     await coordinator.claim(
       snapshot.id,
       "governance.judge",
@@ -160,12 +166,6 @@ async function completeRun(mode, index) {
       roleId: "governance.judge",
       instanceId: "judge",
       artifactPath: await artifact(snapshot.id, "result-review.md")
-    });
-    snapshot = await coordinator.submit({
-      runId: snapshot.id,
-      roleId: "expert.tester",
-      instanceId: "tester",
-      artifactPath: await verificationArtifact(snapshot, "tester")
     });
   } else {
     snapshot = await submit(

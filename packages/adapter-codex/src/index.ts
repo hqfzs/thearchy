@@ -69,11 +69,11 @@ ${modelPolicy}
 9. Before spawning a child agent, reserve its slot with \`${coordinatorCommand} run claim <run-id> --role <role-id> --instance <instance-id> --model ${options.subagentModel ?? "gpt-5.6-luna"} --reasoning-effort ${options.subagentReasoningEffort ?? "max"}\`.
 10. Delegate only the claimed role and apply the subagent model policy.
 11. Send \`${coordinatorCommand} run heartbeat <run-id> --instance <instance-id>\` during long-running work.
-12. Save each child result as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Tester artifacts must use the structured verification JSON contract. Submission releases the slot.
+12. Save each child result as an artifact and submit it with \`${coordinatorCommand} run submit <run-id> --role <role-id> --instance <instance-id> --artifact <path>\`. Tester artifacts must use the structured verification JSON contract. Feature, bug-fix, and migration verification must include non-empty \`boundaryChecks\` for type confusion, nullability, ranges, empty values, and compatibility; Python integer contracts must test \`bool\` separately. Submission releases the slot.
 13. If a child fails without an artifact, release it with \`${coordinatorCommand} run release <run-id> --instance <instance-id>\`.
 14. If scope, sensitive paths, destructive work, migration, or missing verification is discovered, call \`${coordinatorCommand} run reassess <run-id> --signal <type> --summary <text>\` and resolve any escalation interaction before continuing.
 15. Before network, dependency installation, destructive actions, migration, publishing, external writes, or sensitive reads, call \`${coordinatorCommand} run request-operation\` and resolve its interaction.
-16. When \`next\` returns \`parallelRoles\`, run those child roles concurrently within the coordinator concurrency budget. This is a full-mode optimization; light mode remains sequential.
+16. In full mode, complete and submit tester evidence before asking the reusable judge for the final result verdict. Do not run final tester and result judge concurrently.
 17. Never start a second run for the same task and repository. If \`run start\` returns an existing run ID, resume it.
 18. Export the final report.
 
@@ -129,7 +129,7 @@ export class CodexAdapter implements HostAdapter {
 
     const manifest = {
       name: "thearchy",
-      version: options.version ?? "0.2.0",
+      version: options.version ?? "0.2.1",
       description: "Deterministic multi-agent quality governance for Codex.",
       author: { name: "Thearchy Contributors" },
       homepage: "https://github.com/hqfzs/thearchy",

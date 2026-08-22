@@ -2,7 +2,7 @@
 
 神治是一套运行在本地 AI 编码工具中的多 Agent 质量治理系统。它不提供新的模型服务，而是在 Codex 与 Claude Code之上加入确定性的规划、裁决、执行、验证和交付状态机。
 
-> 当前版本：`0.2.0`。正式支持 Windows + Codex Desktop；其他适配器保留为实验性能力。
+> 当前版本：`0.2.1`。正式支持 Windows + Codex Desktop；其他适配器保留为实验性能力。
 >
 > 首个正式版本仅承诺支持 **Windows + Codex Desktop**。Claude Code、macOS 与 Linux 适配代码继续保留，但在正式版前作为实验性能力，不计入稳定性承诺。
 
@@ -170,7 +170,13 @@ thearchy run submit <run-id> \
 thearchy run heartbeat <run-id> --instance builder-1
 ```
 
-轻量模式由一个领域专家执行，再由一个独立测试 Agent 合并完成验证与成果审查；不创建单独的方案裁决 Agent。完整模式的验证阶段会并行运行测试 Agent 和复用的裁决 Agent。
+等待用户审批不会消耗活动执行预算。确需增加执行时间时：
+
+```bash
+thearchy run extend-budget <run-id> --minutes 15
+```
+
+轻量模式由一个领域专家执行，再由一个独立测试 Agent 合并完成验证与成果审查；不创建单独的方案裁决 Agent。完整模式先完成独立测试，再由复用的裁决 Agent读取完整测试证据并作最终裁决。
 
 高风险操作必须先发起询问：
 

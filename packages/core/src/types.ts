@@ -332,6 +332,14 @@ export interface RunSnapshot {
   dirtyWorkingTree: boolean;
   modeBudgets: Record<EffectiveRunMode, RunBudget>;
   budget: RunBudget;
+  activeElapsedMs: number;
+  activeSince?: string;
+  pausedAt?: string;
+  budgetExtensions: Array<{
+    minutes: number;
+    actor: string;
+    createdAt: string;
+  }>;
   startedAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -363,6 +371,7 @@ export interface RunEvent {
     | "mode.escalation.requested"
     | "verification.validated"
     | "store.recovered"
+    | "budget.extended"
     | "candidate.created"
     | "candidate.verified"
     | "candidate.selected"

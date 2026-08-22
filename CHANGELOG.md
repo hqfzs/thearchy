@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-08-22
+
+- Paused run budgets while awaiting user decisions and added audited budget extensions.
+- Sequenced full-mode verification so result judgment always reads completed tester evidence.
+- Renewed runtime capability leases automatically during active coordination.
+- Required structured boundary checks for feature, bug-fix, and migration verification.
+- Migrated npm publishing from long-lived tokens to GitHub OIDC trusted publishing.
+
 ## 0.2.0 — 2026-08-21
 
 - Declared Windows and Codex Desktop as the stable support target.

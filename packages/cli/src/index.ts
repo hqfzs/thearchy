@@ -45,7 +45,7 @@ import {
   removeTemplate
 } from "./templates.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 
 function output(value: unknown, json = false): void {
   if (typeof value === "string" && !json) {
@@ -73,6 +73,7 @@ Usage:
   thearchy run release <run-id> --instance <instance-id>
   thearchy run heartbeat <run-id> --instance <instance-id>
   thearchy run recover-stale <run-id>
+  thearchy run extend-budget <run-id> --minutes <number>
   thearchy run recover <run-id> --from-backup <backup-id> --confirm <sha256>
   thearchy run register-capabilities <run-id> --input <report.json>
   thearchy run reassess <run-id> --signal <type> --summary <text>
@@ -175,6 +176,16 @@ async function handleRun(command: string | undefined, parsed: ParsedArgs): Promi
     case "recover-stale":
       if (!id) throw new Error("Missing run id");
       output(await service.recoverStale(id), true);
+      return;
+    case "extend-budget":
+      if (!id) throw new Error("Missing run id");
+      output(
+        await service.extendBudget(
+          id,
+          optionNumber(parsed, "minutes") ?? Number.NaN
+        ),
+        true
+      );
       return;
     case "recover":
       if (!id) throw new Error("Missing run id");

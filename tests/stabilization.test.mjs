@@ -245,3 +245,106 @@ test("structured unverified results pause delivery", async () => {
     "verification"
   );
 });
+
+test("approval waits do not consume active budget and expired runs can be extended", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-active-budget-"));
+  const template = await loadTemplate(
+    join(root, "templates", "feature-delivery.yaml")
+  );
+  const store = new RunStore(join(directory, "state"));
+  const coordinator = new Coordinator(store);
+  let paused = await coordinator.start({
+    task: "Add a small helper",
+    template,
+    requestedMode: "light",
+    cwd: directory
+  });
+  paused = await coordinator.submit({
+    runId: paused.id,
+    roleId: "governance.router",
+    instanceId: "root-main",
+    artifactPath: await writeArtifact(directory, "paused-classification.md"),
+    rootManaged: true
+  });
+  paused = await coordinator.submit({
+    runId: paused.id,
+    roleId: "governance.planner",
+    instanceId: "root-main",
+    artifactPath: await writeArtifact(directory, "paused-plan.md"),
+    rootManaged: true
+  });
+  await store.update(paused.id, (snapshot, events) => {
+    snapshot.startedAt = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+    snapshot.activeElapsedMs = 1_000;
+    delete snapshot.activeSince;
+    snapshot.pausedAt = new Date(Date.now() - 60 * 60_000).toISOString();
+    return {
+      sequence: events.length + 1,
+      runId: snapshot.id,
+      type: "run.transitioned",
+      timestamp: new Date().toISOString(),
+      actor: "test",
+      data: { forcedPausedClock: true }
+    };
+  });
+  assert.equal((await coordinator.next(paused.id)).state, "awaiting_plan_approval");
+
+  const expired = await coordinator.start({
+    task: "Another small helper",
+    template,
+    requestedMode: "light",
+    cwd: directory,
+    allowDuplicate: true
+  });
+  await store.update(expired.id, (snapshot, events) => {
+    snapshot.activeElapsedMs = 11 * 60_000;
+    snapshot.activeSince = new Date().toISOString();
+    return {
+      sequence: events.length + 1,
+      runId: snapshot.id,
+      type: "run.transitioned",
+      timestamp: new Date().toISOString(),
+      actor: "test",
+      data: { forcedExpiredClock: true }
+    };
+  });
+  await assert.rejects(coordinator.next(expired.id), /exceeded/);
+  const extended = await coordinator.extendBudget(expired.id, 5);
+  assert.equal(extended.budget.timeoutMinutes, 15);
+  assert.equal((await coordinator.next(expired.id)).state, "created");
+});
+
+test("capability availability is automatically renewed on claim", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "thearchy-cap-renewal-"));
+  const template = await loadTemplate(
+    join(root, "templates", "feature-delivery.yaml")
+  );
+  const coordinator = new Coordinator(new RunStore(join(directory, "state")));
+  let snapshot = await coordinator.start({
+    task: "Add a helper",
+    template,
+    requestedMode: "light",
+    cwd: directory
+  });
+  snapshot = await advanceLightToExecution(coordinator, snapshot, directory);
+  await coordinator.registerCapabilities(
+    snapshot.id,
+    createHostRuntimeReport({
+      subagents: "available",
+      parallelAgents: "unknown",
+      choicePrompt: "available",
+      checkedAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString()
+    })
+  );
+  const claimed = await coordinator.claim(
+    snapshot.id,
+    "expert.builder",
+    "renewed-builder",
+    "gpt-5.6-luna",
+    "max"
+  );
+  assert.ok(
+    Date.parse(claimed.runtimeCapabilitiesRegisteredAt) >
+      Date.now() - 10_000
+  );
+});

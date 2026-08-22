@@ -1,6 +1,6 @@
 {
   "name": "thearchy-monorepo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "神治（Thearchy）— local multi-agent quality governance for coding agents.",
   "homepage": "https://github.com/hqfzs/thearchy#readme",

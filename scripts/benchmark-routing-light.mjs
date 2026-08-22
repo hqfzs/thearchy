@@ -340,6 +340,16 @@ for (let repetition = 1; repetition <= 3; repetition += 1) {
         "gpt-5.6-luna",
         "max"
       );
+      snapshot = await coordinator.submit({
+        runId: snapshot.id,
+        roleId: "expert.tester",
+        instanceId: "tester",
+        artifactPath: await verificationArtifact(
+          directory,
+          snapshot,
+          "tester"
+        )
+      });
       await coordinator.claim(
         snapshot.id,
         "governance.judge",
@@ -352,16 +362,6 @@ for (let repetition = 1; repetition <= 3; repetition += 1) {
         roleId: "governance.judge",
         instanceId: "judge",
         artifactPath: await artifact(directory, "result-review.md")
-      });
-      snapshot = await coordinator.submit({
-        runId: snapshot.id,
-        roleId: "expert.tester",
-        instanceId: "tester",
-        artifactPath: await verificationArtifact(
-          directory,
-          snapshot,
-          "tester"
-        )
       });
     }
 
